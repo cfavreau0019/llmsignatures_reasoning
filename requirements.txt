@@ -1,0 +1,18 @@
+# Core
+nnsight>=0.5
+torch>=2.2
+transformers>=4.44
+datasets>=2.20
+numpy>=1.26,<3
+pyyaml>=6.0
+tqdm>=4.66
+
+# Feature tables / analysis
+pandas>=2.2
+pyarrow>=16
+scikit-learn>=1.4
+matplotlib>=3.8
+tabulate>=0.9
+
+# Dev
+pytest>=8.0

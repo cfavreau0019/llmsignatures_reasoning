@@ -1,0 +1,54 @@
+# Default configuration for a reasoning-trajectory extraction run.
+# Every field maps to a dataclass in reasoning_trajectories.config.
+
+run_name: obqa_llama31_8b_smoke
+
+model:
+  # Any HF id that runs locally, or an NDIF-hosted id for remote=True.
+  # Hosted list: https://nnsight.net/status/
+  name: meta-llama/Meta-Llama-3.1-8B
+  remote: false            # true -> execute on NDIF (needs api_key)
+  api_key: null            # or set env NDIF_API_KEY / NNSIGHT_API_KEY
+  dtype: bfloat16
+  device_map: auto
+  dispatch: true           # load weights now (local only)
+
+dataset:
+  name: openbookqa
+  hf_path: allenai/openbookqa
+  hf_config: main          # "main" or "additional" (adds fact1)
+  split: validation
+  limit: 16                # null = whole split
+  include_fact: false      # prepend the gold science fact to the prompt
+  shuffle_seed: 0
+
+reasoning:
+  # How the chain-of-thought text is obtained.
+  source: generate         # generate | dataset_field | precomputed
+  max_new_tokens: 256
+  temperature: 0.0
+  stop_on_answer: true     # truncate after the "Answer: X" line
+  precomputed_path: null   # jsonl with {id, reasoning} when source=precomputed
+
+extraction:
+  # Which residual-stream layers to pull hidden states from.
+  # Ints, negative ints, floats in [0,1] (fraction of depth), or the
+  # keyword "two_thirds". Applies to the token trajectory's anchor layer
+  # and to any extra layers you want stored.
+  star_layer: two_thirds   # layer l* for the token trajectory
+  extra_token_layers: []   # additional anchor layers to store token trajectories for
+  layer_trajectory: true   # store the depth trajectory (mean over positions, every layer)
+  token_trajectory: true   # store the token trajectory at l* (and extra_token_layers)
+  chain_span: completion   # completion | full  -> which positions form the chain
+  store_dtype: float16     # on-disk dtype for hidden states
+  batch_size: 1
+
+geometry:
+  step_rel_tol: 1.0e-6     # step "vanishes" if ||d|| <= tol * median||d||
+  step_abs_tol: 1.0e-12
+  plane_sin2_tol: 1.0e-10  # v1,v2 "parallel" if ||v1^v2||^2 / (||v1||^2 ||v2||^2) <= tol
+
+output:
+  root: data/runs         # run artifacts go to {root}/{run_name}/
+  save_hidden_states: true
+  save_tokens: true

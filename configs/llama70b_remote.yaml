@@ -1,0 +1,42 @@
+# NDIF-remote run on Llama-3.1-70B over a larger OpenBookQA slice.
+run_name: obqa_llama31_70b_remote
+
+model:
+  name: meta-llama/Meta-Llama-3.1-70B
+  remote: true
+  api_key: null            # or export NDIF_API_KEY
+  dtype: bfloat16
+
+dataset:
+  name: openbookqa
+  hf_path: allenai/openbookqa
+  hf_config: main
+  split: validation
+  limit: 200
+  include_fact: false
+  shuffle_seed: 0
+
+reasoning:
+  source: generate
+  max_new_tokens: 320
+  temperature: 0.0
+  stop_on_answer: true
+
+extraction:
+  star_layer: two_thirds   # L=80 -> layer 53
+  extra_token_layers: [0.5, -1]
+  layer_trajectory: true
+  token_trajectory: true
+  chain_span: completion
+  store_dtype: float16
+  batch_size: 1
+
+geometry:
+  step_rel_tol: 1.0e-6
+  step_abs_tol: 1.0e-12
+  plane_sin2_tol: 1.0e-10
+
+output:
+  root: data/runs
+  save_hidden_states: true
+  save_tokens: true
