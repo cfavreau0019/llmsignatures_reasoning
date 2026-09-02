@@ -11,6 +11,7 @@ The geometry layer is independent of extraction and can be used on any array::
     feats = summarize_trajectory(X)          # X: (n_points, hidden_dim)
 """
 from .config import Config
+from .env import load_env
 from .trajectories import (
     Guards,
     LayerTrajectory,
@@ -20,9 +21,17 @@ from .trajectories import (
     torsion,
 )
 
+# Load a project .env (if present) once, so os.environ is populated before any
+# code reads NDIF_API_KEY / HF_TOKEN. Never raises.
+try:
+    load_env()
+except Exception:  # pragma: no cover - defensive
+    pass
+
 __all__ = [
     "Config",
     "run_pipeline",
+    "load_env",
     "Guards",
     "TokenTrajectory",
     "LayerTrajectory",

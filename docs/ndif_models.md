@@ -9,7 +9,7 @@ Inference Fabric (NDIF); remote is opt-in per call with `remote=True`.
 ```python
 from nnsight import LanguageModel, CONFIG
 
-CONFIG.set_default_api_key("YOUR_KEY")           # once; or env NDIF_API_KEY
+CONFIG.set_default_api_key("YOUR_KEY")           # or env NDIF_API_KEY, or .env
 model = LanguageModel("meta-llama/Meta-Llama-3.1-70B")
 
 with model.trace("The Eiffel Tower is in", remote=True):
@@ -40,6 +40,19 @@ model:
   remote: true
   api_key: null           # or env NDIF_API_KEY
 ```
+
+## Credentials / environment
+
+`reasoning_trajectories` loads a project `.env` on import
+([`env.py`](../src/reasoning_trajectories/env.py)) without overriding real
+environment variables. Create a git-ignored `.env` in the repo root (never
+commit it):
+
+- `NDIF_API_KEY` (fallback `NNSIGHT_API_KEY`) — passed to
+  `CONFIG.set_default_api_key` when `model.remote` is true and `model.api_key`
+  is not set in the config.
+- `HF_TOKEN` — used by `transformers` for gated repos (all `meta-llama/*`).
+- `HF_HOME` — optional cache relocation.
 
 ## Version notes
 

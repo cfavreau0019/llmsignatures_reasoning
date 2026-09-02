@@ -67,6 +67,9 @@ class ReasoningModel:
     # ------------------------------------------------------------------ #
     @staticmethod
     def _configure_api_key(explicit: str | None) -> None:
+        from ..env import load_env
+
+        load_env()  # pick up a project .env if present (no-op otherwise)
         key = explicit or os.environ.get("NDIF_API_KEY") or os.environ.get("NNSIGHT_API_KEY")
         if not key:
             raise RuntimeError(

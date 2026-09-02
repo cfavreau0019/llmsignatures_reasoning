@@ -6,6 +6,7 @@ datasets>=2.20
 numpy>=1.26,<3
 pyyaml>=6.0
 tqdm>=4.66
+python-dotenv>=1.0   # optional: auto-load a project .env (a built-in fallback parser is used if absent)
 
 # Feature tables / analysis
 pandas>=2.2

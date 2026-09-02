@@ -30,6 +30,7 @@ dataset ──▶ reasoning chain ──▶ targeted hidden states ──▶ tra
 | **`studies/hidden_state_trajectories/`** | **analysis of the trajectories** — profiles, outcome comparisons, plots |
 | `scripts/run_extraction.py` | CLI for a run |
 | `scripts/recompute_features.py` | recompute features from stored hidden states (no model) |
+| `src/reasoning_trajectories/env.py` | optional `.env` loading (auto-run on package import) |
 | `tests/` | analytic geometry checks (circle, helix, straight line) + plumbing |
 
 ## Which layers get extracted
@@ -70,10 +71,26 @@ pip install -r requirements.txt
 pip install -e .            # optional: puts reasoning_trajectories on the path
 ```
 
-For **remote** (NDIF-hosted) models get an API key at <https://login.ndif.us> and
-either set `model.api_key` in the config or export `NDIF_API_KEY`.
-Hosted model list: <https://nnsight.net/status/>. See
-[`docs/ndif_models.md`](docs/ndif_models.md).
+### Credentials
+
+Create a `.env` in the repo root (git-ignored — never commit it) with the
+variables below. It is loaded automatically when `reasoning_trajectories` is
+imported (via `python-dotenv` if installed, otherwise a small built-in parser).
+Real environment variables always take precedence over `.env`.
+
+```dotenv
+NDIF_API_KEY=...          # only for model.remote: true
+HF_TOKEN=...              # only for gated models (meta-llama/*)
+```
+
+| Variable | When needed | Read by |
+|---|---|---|
+| `NDIF_API_KEY` (or `NNSIGHT_API_KEY`) | `model.remote: true` | `extraction/model.py` (after `model.api_key` in the config) |
+| `HF_TOKEN` | gated models such as `meta-llama/*` | `transformers` / `huggingface_hub` |
+| `HF_HOME` | optional, relocate HF cache | `huggingface_hub` |
+
+Get an NDIF key at <https://login.ndif.us>; hosted model list at
+<https://nnsight.net/status/>. See [`docs/ndif_models.md`](docs/ndif_models.md).
 
 ## Run
 
