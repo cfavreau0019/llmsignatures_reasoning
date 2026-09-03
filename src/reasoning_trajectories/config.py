@@ -30,6 +30,8 @@ class DatasetConfig:
     limit: int | None = None
     include_fact: bool = False
     shuffle_seed: int = 0
+    # dataset-specific knobs (e.g. EntailmentBank: task, local_dir, reasoning_format)
+    params: dict = field(default_factory=dict)
 
 
 @dataclass

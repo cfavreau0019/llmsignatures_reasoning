@@ -1,0 +1,49 @@
+# EntailmentBank: study the geometry of gold, human-authored entailment chains.
+# The proof IS the reasoning, so reasoning.source = dataset_field (no generation).
+#
+# First: download entailment_trees_emnlp2021_data_v3.zip from
+#   https://allenai.org/data/entailmentbank
+# unzip it, and set dataset.params.local_dir below to the folder containing
+#   dataset/task_1/{train,dev,test}.jsonl
+run_name: eb_task1_llama31_8b_gold
+
+model:
+  name: meta-llama/Meta-Llama-3.1-8B
+  remote: false
+  dtype: bfloat16
+  device_map: auto
+  dispatch: true
+
+dataset:
+  name: entailmentbank
+  split: validation          # -> dev.jsonl
+  limit: 64
+  shuffle_seed: 0
+  params:
+    task: 1                   # 1 = gold leaves only, 2 = +25 distractors, 3 = corpus
+    local_dir: data/raw/entailment_trees_emnlp2021_data_v3
+    reasoning_format: natural # natural | structured | raw
+    use_question: false       # false -> prompt around the hypothesis; true -> around the question
+
+reasoning:
+  source: dataset_field       # use the gold entailment tree as the chain
+  stop_on_answer: false
+
+extraction:
+  star_layer: two_thirds
+  extra_token_layers: []
+  layer_trajectory: true
+  token_trajectory: true
+  chain_span: completion      # hidden states over the proof tokens only
+  store_dtype: float16
+  batch_size: 1
+
+geometry:
+  step_rel_tol: 1.0e-6
+  step_abs_tol: 1.0e-12
+  plane_sin2_tol: 1.0e-10
+
+output:
+  root: data/runs
+  save_hidden_states: true
+  save_tokens: true

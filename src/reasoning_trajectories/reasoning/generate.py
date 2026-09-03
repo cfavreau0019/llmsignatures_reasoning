@@ -64,6 +64,8 @@ class ReasoningProvider:
         else:
             raise ValueError(f"Unknown reasoning.source {cfg.source!r}")
 
-        if cfg.stop_on_answer:
+        # Only trim generated text -- gold / precomputed chains (e.g. EntailmentBank
+        # proofs) have no "Answer: X" line and the regex could clip them mid-sentence.
+        if cfg.stop_on_answer and cfg.source == "generate":
             text = truncate_after_answer(text)
-        return text
+        return text.strip()

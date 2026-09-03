@@ -19,7 +19,7 @@ dataset ──▶ reasoning chain ──▶ targeted hidden states ──▶ tra
 | Path | Purpose |
 |---|---|
 | `src/reasoning_trajectories/config.py` | typed run config (`configs/*.yaml`) |
-| `src/reasoning_trajectories/datasets/` | dataset loaders → `Example` (OpenBookQA included; add more here) |
+| `src/reasoning_trajectories/datasets/` | dataset loaders → `Example` (OpenBookQA, EntailmentBank; add more here) |
 | `src/reasoning_trajectories/reasoning/` | generate / parse the CoT text, score the final answer |
 | `src/reasoning_trajectories/extraction/layers.py` | resolve layer specs (`two_thirds`, floats, ints, slices) |
 | `src/reasoning_trajectories/extraction/model.py` | NNsight wrapper: `.generate`, `.trace`, targeted hidden states |
@@ -30,6 +30,7 @@ dataset ──▶ reasoning chain ──▶ targeted hidden states ──▶ tra
 | **`studies/hidden_state_trajectories/`** | **analysis of the trajectories** — profiles, outcome comparisons, plots |
 | `scripts/run_extraction.py` | CLI for a run |
 | `scripts/recompute_features.py` | recompute features from stored hidden states (no model) |
+| `notebooks/` | `explore_openbookqa.ipynb`, `explore_entailmentbank.ipynb` — dataset walk-throughs |
 | `src/reasoning_trajectories/env.py` | optional `.env` loading (auto-run on package import) |
 | `tests/` | analytic geometry checks (circle, helix, straight line) + plumbing |
 
@@ -108,13 +109,27 @@ python studies/hidden_state_trajectories/run_study.py --config configs/default.y
 # iterate on geometry/guards without re-running the model
 python scripts/recompute_features.py --run data/runs/obqa_llama31_8b_smoke \
     --set geometry.plane_sin2_tol=1e-8
+
+# EntailmentBank: geometry of gold, human-authored entailment chains (no generation)
+#   1. download entailment_trees_emnlp2021_data_v3.zip from
+#      https://allenai.org/data/entailmentbank and unzip into data/raw/
+#   2. run:
+python scripts/run_extraction.py --config configs/entailmentbank.yaml
 ```
 
-## Adding another dataset
+## Datasets
+
+| Dataset | `dataset.name` | Reasoning source | Notes |
+|---|---|---|---|
+| OpenBookQA | `openbookqa` | `generate` | 4-way MC; no gold reasoning — the model writes the chain |
+| EntailmentBank | `entailmentbank` | `dataset_field` | ships gold entailment trees; `params.task` 1/2/3, `params.reasoning_format` = `natural`/`structured`/`raw`. Put the unzipped v3 release at `data/raw/entailment_trees_emnlp2021_data_v3/` (auto-detected) or set `params.local_dir`. Task 3 has no stored proof — the loader borrows the matching task-1 tree. |
+
+### Adding another dataset
 
 Write a loader in `src/reasoning_trajectories/datasets/` that yields `Example`
 objects and register it in `datasets/__init__.py::load_dataset_from_config`.
-Nothing else changes.
+Dataset-specific options go under `dataset.params` (a free-form dict). Nothing
+else changes.
 
 ## Tests
 
