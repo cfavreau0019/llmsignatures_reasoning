@@ -81,7 +81,7 @@ def test_loader_yields_examples_with_gold_reasoning(tmp_path):
 
     ds = EntailmentBank(task=1, split="validation", local_dir=tmp_path, shuffle_seed=None)
     exs = list(ds)
-    assert len(exs) == 2
+    assert len(exs) == len(RECORDS)
     ex = exs[0]
     assert ex.id == "EB_TEST_001"
     assert ex.prompt.rstrip().endswith("Reasoning:")

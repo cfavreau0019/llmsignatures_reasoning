@@ -1,0 +1,53 @@
+# Paired valid/corrupted entailment chains -- study whether trajectory geometry
+# separates coherent reasoning from broken reasoning.
+#
+# Each gold tree with >= 3 steps is emitted twice: once unchanged ("valid") and
+# once with one corruption ("corrupted"), the corruption type cycling round-robin
+# over {step_shuffle, premise_substitution_other_tree, conclusion_substitution}.
+# features.parquet then carries `condition`, `pair_id`, `corruption_kind`.
+run_name: eb_task1_corruptions_llama31_8b
+
+model:
+  name: meta-llama/Meta-Llama-3.1-8B
+  remote: false
+  dtype: bfloat16
+  device_map: auto
+  dispatch: true
+
+dataset:
+  name: entailmentbank
+  split: validation
+  limit: null                 # whole dev split; ~140 have >= 3 steps -> ~280 chains
+  shuffle_seed: 0
+  params:
+    task: 1
+    reasoning_format: natural
+    perturbation:
+      enabled: true
+      min_steps: 3
+      seed: 0
+      emit: both              # both | valid | corrupted
+      cycle: [step_shuffle, premise_substitution_other_tree, conclusion_substitution]
+
+reasoning:
+  source: dataset_field       # the (possibly corrupted) chain comes from meta["reasoning"]
+  stop_on_answer: false
+
+extraction:
+  star_layer: two_thirds
+  extra_token_layers: []
+  layer_trajectory: true
+  token_trajectory: true
+  chain_span: completion
+  store_dtype: float16
+  batch_size: 1
+
+geometry:
+  step_rel_tol: 1.0e-6
+  step_abs_tol: 1.0e-12
+  plane_sin2_tol: 1.0e-10
+
+output:
+  root: data/runs
+  save_hidden_states: true
+  save_tokens: true

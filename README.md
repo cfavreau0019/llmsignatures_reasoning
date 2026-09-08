@@ -19,7 +19,7 @@ dataset ──▶ reasoning chain ──▶ targeted hidden states ──▶ tra
 | Path | Purpose |
 |---|---|
 | `src/reasoning_trajectories/config.py` | typed run config (`configs/*.yaml`) |
-| `src/reasoning_trajectories/datasets/` | dataset loaders → `Example` (OpenBookQA, EntailmentBank; add more here) |
+| `src/reasoning_trajectories/datasets/` | dataset loaders → `Example` (OpenBookQA, EntailmentBank; `perturbations.py` = paired valid/corrupted chains) |
 | `src/reasoning_trajectories/reasoning/` | generate / parse the CoT text, score the final answer |
 | `src/reasoning_trajectories/extraction/layers.py` | resolve layer specs (`two_thirds`, floats, ints, slices) |
 | `src/reasoning_trajectories/extraction/model.py` | NNsight wrapper: `.generate`, `.trace`, targeted hidden states |
@@ -123,6 +123,28 @@ python scripts/run_extraction.py --config configs/entailmentbank.yaml
 |---|---|---|---|
 | OpenBookQA | `openbookqa` | `generate` | 4-way MC; no gold reasoning — the model writes the chain |
 | EntailmentBank | `entailmentbank` | `dataset_field` | ships gold entailment trees; `params.task` 1/2/3, `params.reasoning_format` = `natural`/`structured`/`raw`. Put the unzipped v3 release at `data/raw/entailment_trees_emnlp2021_data_v3/` (auto-detected) or set `params.local_dir`. Task 3 has no stored proof — the loader borrows the matching task-1 tree. |
+
+### Paired corruptions (valid vs. broken reasoning)
+
+Set `dataset.params.perturbation` on an EntailmentBank run and every gold tree
+with ≥ `min_steps` (default 3) steps is emitted **twice** — unchanged (`valid`)
+and with one corruption (`corrupted`) — with the corruption type cycled
+round-robin (seed 0) over:
+
+| kind | what breaks |
+|---|---|
+| `step_shuffle` | derivation **order** (guaranteed non-identity permutation; <3-step chains escalate to a same-tree premise swap) |
+| `premise_substitution_other_tree` | one step's **premise** ← a sentence from a different tree |
+| `conclusion_substitution` | one step's **derived conclusion** ← a sentence from another tree; propagates to any later step that used it |
+
+`features.parquet` then carries `condition`, `pair_id`, `corruption_kind`.
+Config: [`configs/entailmentbank_corruptions.yaml`](configs/entailmentbank_corruptions.yaml).
+Analysis: `analysis.describe_by_condition` / `analysis.paired_feature_deltas` in
+[`studies/hidden_state_trajectories/`](studies/hidden_state_trajectories/analysis.py).
+
+```bash
+python scripts/run_extraction.py --config configs/entailmentbank_corruptions.yaml
+```
 
 ### Adding another dataset
 

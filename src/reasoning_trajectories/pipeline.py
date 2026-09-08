@@ -50,6 +50,10 @@ def run_pipeline(cfg: Config) -> dict:
             "predicted": rec.predicted,
             "is_correct": rec.is_correct,
             "n_chain_tokens": len(rec.tokens),
+            # present when the dataset is wrapped in PairedCorruption
+            "condition": rec.meta.get("condition"),
+            "pair_id": rec.meta.get("pair_id"),
+            "corruption_kind": (rec.meta.get("corruption") or {}).get("kind"),
         }
         for l, tt in rec.token_trajectories.items():
             tag = "token" if l == rec.star_layer else f"token_L{l}"
@@ -63,6 +67,7 @@ def run_pipeline(cfg: Config) -> dict:
         n_correct += int(bool(rec.is_correct))
 
     store.write_features(feature_rows)
+    conditions = [r.get("condition") for r in feature_rows if r.get("condition")]
     manifest = {
         "run_name": cfg.run_name,
         "model": cfg.model.name,
@@ -72,6 +77,8 @@ def run_pipeline(cfg: Config) -> dict:
         "n_examples": n_done,
         "n_correct": n_correct,
         "accuracy": (n_correct / n_done) if n_done else None,
+        "n_valid": sum(c == "valid" for c in conditions),
+        "n_corrupted": sum(c == "corrupted" for c in conditions),
         "star_layer": extractor.star_layer,
         "extra_token_layers": extractor.extra_layers,
         "n_layers": model.n_layers,

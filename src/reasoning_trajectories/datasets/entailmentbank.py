@@ -110,44 +110,60 @@ def parse_proof_steps(proof: str) -> list[dict]:
     return steps
 
 
-def linearize_proof(
-    record: dict, fmt: str = "natural", *, tree_record: dict | None = None
-) -> tuple[str, list[dict]]:
-    """Return ``(reasoning_text, structured_steps)``.
+def resolve_steps(record: dict, *, tree_record: dict | None = None) -> list[dict]:
+    """Parse a record's proof into resolved, id-annotated steps.
 
-    ``fmt``: ``natural`` (prose), ``structured`` (``A + B => C`` lines),
-    ``raw`` (the proof string with ids replaced by text).
+    Each step:  ``{step, premises:[text], premise_ids:[id], conclusion, conclusion_id}``
+    where ``conclusion_id`` is an ``intN`` label or ``"hypothesis"``.
 
     ``tree_record`` supplies the proof + id->text mapping when it lives in a
-    different record than ``record`` (task 3 carries no proof of its own, so the
-    matching task-1 record is passed here).
+    different record (task 3 carries no proof of its own, so the matching task-1
+    record is passed here).
     """
     src = tree_record or record
     id2text = build_id2text(src)
-    steps = parse_proof_steps(src.get("proof", ""))
+    out: list[dict] = []
+    for i, s in enumerate(parse_proof_steps(src.get("proof", "")), 1):
+        out.append({
+            "step": i,
+            "premise_ids": list(s["premises"]),
+            "premises": [id2text.get(p, p) for p in s["premises"]],
+            "conclusion_id": s["conclusion_id"],
+            "conclusion": s["conclusion_text"] or id2text.get(s["conclusion_id"], s["conclusion_id"]),
+        })
+    return out
 
-    structured: list[dict] = []
-    for i, s in enumerate(steps, 1):
-        prem = [id2text.get(p, p) for p in s["premises"]]
-        concl = s["conclusion_text"] or id2text.get(s["conclusion_id"], s["conclusion_id"])
-        structured.append({"step": i, "premises": prem, "conclusion": concl})
 
+def format_steps(steps: list[dict], fmt: str = "natural") -> str:
+    """Render resolved steps (from :func:`resolve_steps`) to reasoning text.
+
+    ``fmt``: ``natural`` (prose), ``structured`` (``A + B => C`` lines),
+    ``raw`` (proof-string style with ids expanded). Steps are numbered by
+    position, so a reordered list renumbers automatically.
+    """
     if fmt == "raw":
-        # the proof string with sentN/intN ids expanded to their text
-        chunks = [" & ".join(s["premises"]) + " -> " + s["conclusion"] for s in structured]
-        return ("; ".join(chunks) + ";" if chunks else ""), structured
+        chunks = [" & ".join(s["premises"]) + " -> " + s["conclusion"] for s in steps]
+        return "; ".join(chunks) + ";" if chunks else ""
 
     lines = []
-    for s in structured:
+    for i, s in enumerate(steps, 1):
         # premises are bracketed: EntailmentBank sentences contain their own
         # ';' and ',' so a bare separator would be ambiguous.
-        prem = ", and ".join(f"[{p}]" for p in s["premises"])
         if fmt == "structured":
-            lines.append(f"Step {s['step']}: " + " + ".join(f"[{p}]" for p in s["premises"])
+            lines.append(f"Step {i}: " + " + ".join(f"[{p}]" for p in s["premises"])
                          + f"  =>  {s['conclusion']}")
         else:  # natural
-            lines.append(f"{s['step']}. Since {prem}, it follows that {s['conclusion']}.")
-    return "\n".join(lines), structured
+            prem = ", and ".join(f"[{p}]" for p in s["premises"])
+            lines.append(f"{i}. Since {prem}, it follows that {s['conclusion']}.")
+    return "\n".join(lines)
+
+
+def linearize_proof(
+    record: dict, fmt: str = "natural", *, tree_record: dict | None = None
+) -> tuple[str, list[dict]]:
+    """Return ``(reasoning_text, resolved_steps)`` for a record's gold proof."""
+    steps = resolve_steps(record, tree_record=tree_record)
+    return format_steps(steps, fmt), steps
 
 
 def facts_block(sent_map: dict[str, str], only: set[str] | None = None) -> str:

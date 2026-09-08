@@ -65,6 +65,46 @@ def correlation_matrix(features: pd.DataFrame, trajectory: str = "token") -> pd.
 
 
 # --------------------------------------------------------------------------- #
+# valid vs. corrupted chains (PairedCorruption runs)
+# --------------------------------------------------------------------------- #
+def describe_by_condition(features: pd.DataFrame, trajectory: str = "token") -> pd.DataFrame:
+    """Mean / std of each scalar feature, split by `condition` (valid|corrupted)."""
+    sub = features[(features["trajectory"] == trajectory) & features["condition"].notna()]
+    g = sub.groupby("condition")[SCALAR_FEATURES]
+    return pd.concat({"mean": g.mean(), "std": g.std(), "n": g.size().to_frame("n")}, axis=1)
+
+
+def paired_feature_deltas(features: pd.DataFrame, trajectory: str = "token",
+                          by_corruption: bool = False) -> pd.DataFrame:
+    """Per-pair corrupted-minus-valid deltas, joined on `pair_id`.
+
+    Returns mean delta, its std, a paired-t statistic (mean / SE) and Cohen's d_z
+    for each feature -- optionally broken out by `corruption_kind`.
+    """
+    sub = features[(features["trajectory"] == trajectory) & features["condition"].notna()]
+    v = sub[sub["condition"] == "valid"].set_index("pair_id")
+    c = sub[sub["condition"] == "corrupted"].set_index("pair_id")
+    pairs = v.index.intersection(c.index)
+    if len(pairs) < 2:
+        return pd.DataFrame(index=SCALAR_FEATURES)
+
+    delta = c.loc[pairs, SCALAR_FEATURES] - v.loc[pairs, SCALAR_FEATURES]
+    kind = c.loc[pairs, "corruption_kind"]
+
+    def _stats(d: pd.DataFrame) -> pd.DataFrame:
+        n = len(d)
+        m, sd = d.mean(), d.std(ddof=1)
+        se = sd / np.sqrt(n)
+        return pd.DataFrame({"n_pairs": n, "mean_delta": m, "std_delta": sd,
+                             "paired_t": m / se.replace(0, np.nan),
+                             "cohen_dz": m / sd.replace(0, np.nan)})
+
+    if not by_corruption:
+        return _stats(delta)
+    return pd.concat({k: _stats(delta[kind == k]) for k in sorted(kind.unique())}, names=["corruption"])
+
+
+# --------------------------------------------------------------------------- #
 # per-vertex profiles along one chain
 # --------------------------------------------------------------------------- #
 def vertex_profiles(store: RunStore, example_id: str, cfg: Config, layer: int | None = None) -> dict:

@@ -1,6 +1,7 @@
 from .base import Example, ReasoningDataset
 from .entailmentbank import EntailmentBank
 from .openbookqa import OpenBookQA, format_prompt
+from .perturbations import CYCLE_DEFAULT, PairedCorruption
 
 
 def load_dataset_from_config(cfg) -> ReasoningDataset:
@@ -18,7 +19,7 @@ def load_dataset_from_config(cfg) -> ReasoningDataset:
             shuffle_seed=cfg.shuffle_seed,
         )
     if name in ("entailmentbank", "eb"):
-        return EntailmentBank(
+        ds = EntailmentBank(
             task=params.get("task", 1),
             split=cfg.split,
             local_dir=params.get("local_dir"),
@@ -29,7 +30,31 @@ def load_dataset_from_config(cfg) -> ReasoningDataset:
             reasoning_format=params.get("reasoning_format", "natural"),
             use_question=params.get("use_question", False),
         )
+        return _maybe_perturb(ds, params)
     raise ValueError(f"Unknown dataset '{cfg.name}'. Add a loader in datasets/.")
+
+
+def _maybe_perturb(ds, params: dict):
+    """Wrap `ds` in PairedCorruption when dataset.params.perturbation is set.
+
+    params.perturbation: true, or a dict with keys
+        enabled (default true), min_steps (3), seed (0), emit ("both"),
+        cycle (list of corruption kinds).
+    """
+    p = params.get("perturbation")
+    if not p:
+        return ds
+    p = {} if p is True else dict(p)
+    if not p.get("enabled", True):
+        return ds
+    return PairedCorruption(
+        ds,
+        min_steps=p.get("min_steps", 3),
+        seed=p.get("seed", 0),
+        cycle=tuple(p.get("cycle") or CYCLE_DEFAULT),
+        emit=p.get("emit", "both"),
+        reasoning_format=params.get("reasoning_format", "natural"),
+    )
 
 
 __all__ = [
@@ -37,6 +62,8 @@ __all__ = [
     "ReasoningDataset",
     "OpenBookQA",
     "EntailmentBank",
+    "PairedCorruption",
+    "CYCLE_DEFAULT",
     "format_prompt",
     "load_dataset_from_config",
 ]
