@@ -20,7 +20,7 @@ dataset ──▶ reasoning chain ──▶ targeted hidden states ──▶ tra
 |---|---|
 | `src/reasoning_trajectories/config.py` | typed run config (`configs/*.yaml`) |
 | `src/reasoning_trajectories/datasets/` | dataset loaders → `Example` (OpenBookQA, EntailmentBank; `perturbations.py` = paired valid/corrupted chains) |
-| `src/reasoning_trajectories/reasoning/` | generate / parse the CoT text, score the final answer |
+| `src/reasoning_trajectories/reasoning/` | `chain.py` = `ReasoningChain` (one chain: text + steps + `.corrupt()`); `generate.py` = obtain / score the chain |
 | `src/reasoning_trajectories/extraction/layers.py` | resolve layer specs (`two_thirds`, floats, ints, slices) |
 | `src/reasoning_trajectories/extraction/model.py` | NNsight wrapper: `.generate`, `.trace`, targeted hidden states |
 | `src/reasoning_trajectories/extraction/extract.py` | per-example: text → trajectories |
@@ -145,6 +145,22 @@ Analysis: `analysis.describe_by_condition` / `analysis.paired_feature_deltas` in
 ```bash
 python scripts/run_extraction.py --config configs/entailmentbank_corruptions.yaml
 ```
+
+Under the hood the corruptions are methods on `ReasoningChain`, usable on a
+single chain with no dataset:
+
+```python
+from reasoning_trajectories import ReasoningChain
+from reasoning_trajectories.reasoning import DonorPool
+
+ch = ReasoningChain.from_entailmentbank(record)     # or .from_steps(...) / .from_text(...)
+ch.premises, ch.hypothesis, ch.as_format("raw").text
+bad = ch.corrupt("step_shuffle", seed=0)            # -> new chain; ch untouched
+bad.meta["corruption"]                              # what changed
+```
+
+`premise_substitution_other_tree` / `conclusion_substitution` take
+`donors=DonorPool(other_chains)`.
 
 ### Adding another dataset
 

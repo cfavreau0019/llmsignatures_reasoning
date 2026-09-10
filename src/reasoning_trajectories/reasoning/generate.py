@@ -1,4 +1,4 @@
-"""Obtain the reasoning-chain text for an example and score its final answer."""
+"""Obtain the reasoning chain for an example and score its final answer."""
 from __future__ import annotations
 
 import json
@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 
 from ..datasets.base import Example
+from .chain import ReasoningChain
 
 _ANSWER_RE = re.compile(r"answer\s*[:\-]?\s*\(?\s*([A-Ha-h1-8])\s*\)?", re.IGNORECASE)
 
@@ -49,23 +50,38 @@ class ReasoningProvider:
                     row = json.loads(line)
                     self._precomputed[str(row["id"])] = row["reasoning"]
 
-    def reasoning_for(self, ex: Example) -> str:
+    def chain_for(self, ex: Example) -> ReasoningChain:
+        """Return the reasoning chain for ``ex`` per ``cfg.source``:
+
+        * ``dataset_field`` -- a **structured** chain from ``meta["entailment_steps"]``
+          when present (so its steps/premises/format are inspectable), else an
+          opaque chain from ``meta["reasoning"]`` / ``ex.context``.
+        * ``precomputed``   -- an opaque chain from the precomputed JSONL.
+        * ``generate``      -- an opaque chain from the model's continuation
+          (trimmed at the ``Answer: X`` line when ``stop_on_answer``).
+        """
         cfg = self.cfg
         if cfg.source == "precomputed":
-            text = self._precomputed[ex.id]
-        elif cfg.source == "dataset_field":
-            text = ex.meta.get("reasoning") or ex.context or ""
-        elif cfg.source == "generate":
+            return ReasoningChain.from_text(self._precomputed[ex.id].strip(), source_id=ex.id)
+
+        if cfg.source == "dataset_field":
+            if ex.meta.get("entailment_steps"):
+                return ReasoningChain.from_example(ex)
+            return ReasoningChain.from_text((ex.meta.get("reasoning") or ex.context or "").strip(),
+                                            source_id=ex.id)
+
+        if cfg.source == "generate":
             if self.model is None:
                 raise RuntimeError("reasoning.source='generate' requires a model")
             text = self.model.generate_reasoning(
                 ex.prompt, max_new_tokens=cfg.max_new_tokens, temperature=cfg.temperature
             )
-        else:
-            raise ValueError(f"Unknown reasoning.source {cfg.source!r}")
+            if cfg.stop_on_answer:
+                text = truncate_after_answer(text)
+            return ReasoningChain.from_text(text.strip(), source_id=ex.id)
 
-        # Only trim generated text -- gold / precomputed chains (e.g. EntailmentBank
-        # proofs) have no "Answer: X" line and the regex could clip them mid-sentence.
-        if cfg.stop_on_answer and cfg.source == "generate":
-            text = truncate_after_answer(text)
-        return text.strip()
+        raise ValueError(f"Unknown reasoning.source {cfg.source!r}")
+
+    def reasoning_for(self, ex: Example) -> str:
+        """The chain's text -- see :meth:`chain_for`."""
+        return self.chain_for(ex).text

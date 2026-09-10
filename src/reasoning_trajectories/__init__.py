@@ -12,6 +12,7 @@ The geometry layer is independent of extraction and can be used on any array::
 """
 from .config import Config
 from .env import load_env
+from .reasoning import ReasoningChain
 from .trajectories import (
     Guards,
     LayerTrajectory,
@@ -32,6 +33,7 @@ __all__ = [
     "Config",
     "run_pipeline",
     "load_env",
+    "ReasoningChain",
     "Guards",
     "TokenTrajectory",
     "LayerTrajectory",

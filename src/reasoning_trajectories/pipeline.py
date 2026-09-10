@@ -35,7 +35,8 @@ def run_pipeline(cfg: Config) -> dict:
     t0 = time.time()
 
     for ex in tqdm(dataset, total=len(dataset), desc=cfg.run_name):
-        reasoning = provider.reasoning_for(ex)
+        chain = provider.chain_for(ex)
+        reasoning = chain.text
         predicted = parse_answer(reasoning, ex.choice_labels)
         rec = extractor.extract(ex, reasoning, predicted=predicted)
         store.save_record(
@@ -50,6 +51,8 @@ def run_pipeline(cfg: Config) -> dict:
             "predicted": rec.predicted,
             "is_correct": rec.is_correct,
             "n_chain_tokens": len(rec.tokens),
+            "n_steps": len(chain) if chain.is_structured else None,
+            "reasoning_format": chain.fmt,
             # present when the dataset is wrapped in PairedCorruption
             "condition": rec.meta.get("condition"),
             "pair_id": rec.meta.get("pair_id"),
@@ -74,6 +77,7 @@ def run_pipeline(cfg: Config) -> dict:
         "remote": cfg.model.remote,
         "dataset": cfg.dataset.name,
         "split": cfg.dataset.split,
+        "reasoning_source": cfg.reasoning.source,
         "n_examples": n_done,
         "n_correct": n_correct,
         "accuracy": (n_correct / n_done) if n_done else None,

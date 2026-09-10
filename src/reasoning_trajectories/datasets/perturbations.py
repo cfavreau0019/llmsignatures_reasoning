@@ -1,167 +1,54 @@
-"""Paired reasoning-chain corruptions for the trajectory-geometry study.
+"""Paired valid/corrupted reasoning chains for the trajectory-geometry study.
+
+The corruption mechanics now live on :class:`ReasoningChain`
+(``chain.corrupt(kind, seed=, donors=)``); this module is just the **dataset
+wrapper** that turns a base dataset into matched valid/corrupted pairs.
 
 Design (matches the study spec)
 -------------------------------
 * **Valid set** -- gold trees with at least ``min_steps`` (default 3) materialized
   entailment steps. Each is emitted unchanged as the ``valid`` member of a pair.
 * Every valid chain is paired with **one corruption**, its type assigned
-  **round-robin** over ``cycle`` (default below), so the three corruption
-  families are balanced across the dataset:
+  **round-robin** over ``cycle`` (default: ``step_shuffle`` /
+  ``premise_substitution_other_tree`` / ``conclusion_substitution``), so the
+  three families are balanced across the dataset. Chains too short to shuffle
+  escalate to a same-tree ``premise_substitution``.
+* All randomness is seeded per example from ``seed`` (default 0), via
+  ``ReasoningChain.corrupt(seed=...)`` -> reproducible across processes.
 
-  1. ``step_shuffle`` -- reorder the steps with a *guaranteed non-identity*
-     permutation. Every step stays locally sound and every sentence stays intact;
-     what breaks is the global derivation order. A chain with fewer than
-     ``min_steps`` steps (rare, given the filter) *escalates* to
-     ``premise_substitution``.
-  2. ``premise_substitution_other_tree`` -- replace one premise of one step with
-     a sentence drawn from a *different* tree. That step becomes a non-sequitur
-     and a topically foreign sentence enters the chain.
-  3. ``conclusion_substitution`` -- replace one step's derived conclusion with a
-     sentence from another tree. The step's premises no longer support it and any
-     later step that consumed that intermediate now builds on a wrong fact.
-
-  (``premise_substitution`` -- same-tree premise swap -- exists only as the
-  short-chain escalation target.)
-
-All randomness (the permutation, which step/premise, which donor sentence) is
-seeded per example from ``seed`` so a run is fully reproducible; ``seed=0`` by
-default.
-
-The wrapper is dataset-agnostic: it works on any dataset whose ``Example``
-objects carry ``meta["entailment_steps"]`` in the shape produced by
-:func:`reasoning_trajectories.datasets.entailmentbank.resolve_steps`.
+Works on any dataset whose ``Example`` objects carry ``meta["entailment_steps"]``.
 """
 from __future__ import annotations
 
-import hashlib
-import random
 from dataclasses import replace
 
+from ..reasoning.chain import CORRUPTIONS, DonorPool, ReasoningChain
 from .base import Example
-from .entailmentbank import format_steps
 
 CYCLE_DEFAULT = ("step_shuffle", "premise_substitution_other_tree", "conclusion_substitution")
-_ALL_KINDS = set(CYCLE_DEFAULT) | {"premise_substitution"}
+
+__all__ = ["CYCLE_DEFAULT", "CORRUPTIONS", "DonorPool", "PairedCorruption", "apply_corruption"]
 
 
-# --------------------------------------------------------------------------- #
-# donor material
-# --------------------------------------------------------------------------- #
-class DonorPool:
-    """Premise / conclusion sentences harvested from a set of examples, tagged
-    with their source id so the current tree can be excluded."""
+def apply_corruption(steps: list[dict], kind: str, *, rng, donors: DonorPool,
+                     src_id: str, min_steps: int = 3) -> tuple[list[dict], dict]:
+    """Back-compat shim. Prefer ``ReasoningChain.from_steps(steps).corrupt(...)``.
 
-    def __init__(self, examples):
-        self._prem: list[tuple[str, str]] = []   # (text, src_id)
-        self._concl: list[tuple[str, str]] = []
-        for ex in examples:
-            for s in ex.meta.get("entailment_steps") or []:
-                for p in s["premises"]:
-                    self._prem.append((p, ex.id))
-                self._concl.append((s["conclusion"], ex.id))
-
-    def _pick(self, table, rng, exclude_texts, exclude_src) -> str:
-        pool = sorted({t for t, src in table if src != exclude_src and t not in exclude_texts})
-        if not pool:  # degenerate corpus (e.g. 1 tree): fall back to anything unseen
-            pool = sorted({t for t, _ in table if t not in exclude_texts})
-        if not pool:
-            return "[unrelated fact]"
-        return rng.choice(pool)
-
-    def premise(self, rng, exclude_texts, exclude_src) -> str:
-        return self._pick(self._prem, rng, exclude_texts, exclude_src)
-
-    def conclusion(self, rng, exclude_texts, exclude_src) -> str:
-        return self._pick(self._concl, rng, exclude_texts, exclude_src)
+    Returns ``(corrupted_step_dicts, info)``.
+    """
+    out = ReasoningChain.from_steps(steps, source_id=src_id).corrupt(
+        kind, rng=rng, donors=donors, min_steps=min_steps
+    )
+    return out.to_dicts(), out.meta["corruption"]
 
 
-# --------------------------------------------------------------------------- #
-# the corruptions
-# --------------------------------------------------------------------------- #
-def _non_identity_permutation(k: int, rng: random.Random) -> list[int]:
-    idx = list(range(k))
-    for _ in range(100):
-        rng.shuffle(idx)
-        if idx != list(range(k)):
-            return list(idx)
-    idx = list(range(k))                       # k >= 2 guarantees this differs
-    idx[0], idx[1] = idx[1], idx[0]
-    return idx
-
-
-def _copy_steps(steps: list[dict]) -> list[dict]:
-    return [dict(s, premises=list(s["premises"]), premise_ids=list(s.get("premise_ids", [])))
-            for s in steps]
-
-
-def apply_corruption(steps: list[dict], kind: str, *, rng: random.Random,
-                     donors: DonorPool, src_id: str, min_steps: int = 3) -> tuple[list[dict], dict]:
-    """Return ``(corrupted_steps, info)``. ``info`` records exactly what changed."""
-    if kind not in _ALL_KINDS:
-        raise ValueError(f"unknown corruption {kind!r}; choose from {sorted(_ALL_KINDS)}")
-    steps = _copy_steps(steps)
-
-    if kind == "step_shuffle":
-        if len(steps) < max(3, min_steps):
-            return apply_corruption(steps, "premise_substitution", rng=rng, donors=donors,
-                                    src_id=src_id, min_steps=min_steps)
-        perm = _non_identity_permutation(len(steps), rng)
-        return [steps[i] for i in perm], {"kind": "step_shuffle", "permutation": perm}
-
-    own_texts = {p for s in steps for p in s["premises"]} | {s["conclusion"] for s in steps}
-
-    if kind in ("premise_substitution", "premise_substitution_other_tree"):
-        si = rng.randrange(len(steps))
-        pi = rng.randrange(len(steps[si]["premises"]))
-        old = steps[si]["premises"][pi]
-        if kind == "premise_substitution_other_tree":
-            new = donors.premise(rng, exclude_texts=own_texts, exclude_src=src_id)
-        else:  # same-tree: a sentence from this tree not already a premise of this step
-            pool = sorted(own_texts - set(steps[si]["premises"]))
-            new = rng.choice(pool) if pool else donors.premise(rng, own_texts, src_id)
-        steps[si]["premises"][pi] = new
-        if steps[si].get("premise_ids"):
-            steps[si]["premise_ids"][pi] = "SUB"
-        return steps, {"kind": kind, "step": si + 1, "premise_index": pi, "old": old, "new": new}
-
-    # conclusion_substitution -- prefer an intermediate node so the hypothesis stays.
-    # The wrong conclusion also propagates: any later step that consumed this
-    # intermediate as a premise now carries the wrong fact.
-    cand = [i for i, s in enumerate(steps) if s.get("conclusion_id") != "hypothesis"] \
-        or list(range(len(steps)))
-    si = rng.choice(cand)
-    old = steps[si]["conclusion"]
-    old_id = steps[si].get("conclusion_id")
-    new = donors.conclusion(rng, exclude_texts=own_texts, exclude_src=src_id)
-    steps[si]["conclusion"] = new
-    steps[si]["conclusion_id"] = "SUB"
-    propagated = 0
-    if old_id not in (None, "hypothesis"):
-        for later in steps[si + 1:]:
-            for j, pid in enumerate(later.get("premise_ids", [])):
-                if pid == old_id:
-                    later["premises"][j] = new
-                    later["premise_ids"][j] = "SUB"
-                    propagated += 1
-    return steps, {"kind": "conclusion_substitution", "step": si + 1, "old": old,
-                   "new": new, "propagated_to": propagated}
-
-
-def _seed_for(seed: int, example_id: str) -> int:
-    h = hashlib.blake2b(f"{seed}:{example_id}".encode(), digest_size=8)
-    return int.from_bytes(h.digest(), "big")
-
-
-# --------------------------------------------------------------------------- #
-# the dataset wrapper
 # --------------------------------------------------------------------------- #
 class PairedCorruption:
     """Wrap a dataset; emit ``(valid, corrupted)`` chain pairs.
 
-    Each yielded :class:`Example` gains
-    ``meta["condition"]`` (``"valid"`` / ``"corrupted"``),
-    ``meta["pair_id"]`` (shared by the two members), and, for corrupted ones,
-    ``meta["corruption"]`` (the change record). Corrupted ids are
+    Each yielded :class:`Example` gains ``meta["condition"]``
+    (``"valid"``/``"corrupted"``), ``meta["pair_id"]`` (shared by the two
+    members) and, for corrupted ones, ``meta["corruption"]``. Corrupted ids are
     ``"<pair_id>__<kind>"``.
     """
 
@@ -179,13 +66,17 @@ class PairedCorruption:
         self.base_name = getattr(base, "name", "dataset")
 
         self._base = list(base)
+        self._chains = {
+            ex.id: ReasoningChain.from_steps(ex.meta.get("entailment_steps") or [],
+                                             fmt=self.fmt, source_id=ex.id)
+            for ex in self._base
+        }
         self._valid = [ex for ex in self._base
                        if len(ex.meta.get("entailment_steps") or []) >= self.min_steps]
-        self._donors = DonorPool(self._base)
+        self._donors = DonorPool(self._chains.values())
 
     def __len__(self) -> int:
-        per = 2 if self.emit == "both" else 1
-        return len(self._valid) * per
+        return len(self._valid) * (2 if self.emit == "both" else 1)
 
     def assignments(self) -> list[tuple[str, str]]:
         """(example_id, corruption_kind) in emission order -- handy for inspection."""
@@ -194,22 +85,20 @@ class PairedCorruption:
     def __iter__(self):
         for i, ex in enumerate(self._valid):
             kind = self.cycle[i % len(self.cycle)]
-            rng = random.Random(_seed_for(self.seed, ex.id))
-            steps = ex.meta["entailment_steps"]
-            corrupt_steps, info = apply_corruption(
-                steps, kind, rng=rng, donors=self._donors, src_id=ex.id, min_steps=self.min_steps
-            )
+            chain = self._chains[ex.id]
+            corrupted = chain.corrupt(kind, seed=self.seed, donors=self._donors,
+                                      min_steps=self.min_steps)
             if self.emit in ("both", "valid"):
-                yield _variant(ex, "valid", ex.id, steps, self.fmt, None)
+                yield _variant(ex, "valid", ex.id, chain)
             if self.emit in ("both", "corrupted"):
-                yield _variant(ex, "corrupted", ex.id, corrupt_steps, self.fmt, info)
+                yield _variant(ex, "corrupted", ex.id, corrupted)
 
 
-def _variant(ex: Example, condition: str, pair_id: str, steps: list[dict],
-             fmt: str, corruption: dict | None) -> Example:
+def _variant(ex: Example, condition: str, pair_id: str, chain: ReasoningChain) -> Example:
+    corruption = chain.meta.get("corruption")
     meta = dict(ex.meta)
-    meta["entailment_steps"] = steps
-    meta["reasoning"] = format_steps(steps, fmt)
+    meta["entailment_steps"] = chain.to_dicts()
+    meta["reasoning"] = chain.text
     meta["condition"] = condition
     meta["pair_id"] = pair_id
     meta["corruption"] = corruption

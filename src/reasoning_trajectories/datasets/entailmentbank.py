@@ -37,6 +37,7 @@ import re
 from pathlib import Path
 from typing import Iterator
 
+from ..reasoning.chain import ReasoningChain
 from .base import Example
 
 _SENT_SPLIT = re.compile(r"(sent\d+|int\d+):\s*")
@@ -110,20 +111,11 @@ def parse_proof_steps(proof: str) -> list[dict]:
     return steps
 
 
-def resolve_steps(record: dict, *, tree_record: dict | None = None) -> list[dict]:
-    """Parse a record's proof into resolved, id-annotated steps.
-
-    Each step:  ``{step, premises:[text], premise_ids:[id], conclusion, conclusion_id}``
-    where ``conclusion_id`` is an ``intN`` label or ``"hypothesis"``.
-
-    ``tree_record`` supplies the proof + id->text mapping when it lives in a
-    different record (task 3 carries no proof of its own, so the matching task-1
-    record is passed here).
-    """
-    src = tree_record or record
-    id2text = build_id2text(src)
+def steps_from_proof(proof: str, id2text: dict[str, str]) -> list[dict]:
+    """Resolve a linear proof string against an id->text map into id-annotated
+    step dicts: ``{step, premises:[text], premise_ids:[id], conclusion, conclusion_id}``."""
     out: list[dict] = []
-    for i, s in enumerate(parse_proof_steps(src.get("proof", "")), 1):
+    for i, s in enumerate(parse_proof_steps(proof), 1):
         out.append({
             "step": i,
             "premise_ids": list(s["premises"]),
@@ -134,28 +126,23 @@ def resolve_steps(record: dict, *, tree_record: dict | None = None) -> list[dict
     return out
 
 
-def format_steps(steps: list[dict], fmt: str = "natural") -> str:
-    """Render resolved steps (from :func:`resolve_steps`) to reasoning text.
+def resolve_steps(record: dict, *, tree_record: dict | None = None) -> list[dict]:
+    """Parse a record's proof into resolved, id-annotated steps.
 
-    ``fmt``: ``natural`` (prose), ``structured`` (``A + B => C`` lines),
-    ``raw`` (proof-string style with ids expanded). Steps are numbered by
-    position, so a reordered list renumbers automatically.
+    ``tree_record`` supplies the proof + id->text mapping when it lives in a
+    different record (task 3 carries no proof of its own, so the matching task-1
+    record is passed here).
     """
-    if fmt == "raw":
-        chunks = [" & ".join(s["premises"]) + " -> " + s["conclusion"] for s in steps]
-        return "; ".join(chunks) + ";" if chunks else ""
+    src = tree_record or record
+    return steps_from_proof(src.get("proof", ""), build_id2text(src))
 
-    lines = []
-    for i, s in enumerate(steps, 1):
-        # premises are bracketed: EntailmentBank sentences contain their own
-        # ';' and ',' so a bare separator would be ambiguous.
-        if fmt == "structured":
-            lines.append(f"Step {i}: " + " + ".join(f"[{p}]" for p in s["premises"])
-                         + f"  =>  {s['conclusion']}")
-        else:  # natural
-            prem = ", and ".join(f"[{p}]" for p in s["premises"])
-            lines.append(f"{i}. Since {prem}, it follows that {s['conclusion']}.")
-    return "\n".join(lines)
+
+def format_steps(steps: list[dict], fmt: str = "natural") -> str:
+    """Render resolved step dicts to reasoning text. Thin wrapper over
+    :func:`reasoning_trajectories.reasoning.chain.render_steps`."""
+    from ..reasoning.chain import Step, render_steps
+
+    return render_steps([Step.from_dict(s) for s in steps], fmt)
 
 
 def linearize_proof(
@@ -286,7 +273,9 @@ class EntailmentBank:
             tree_rec = rec
             if not (rec.get("proof") or "").strip():
                 tree_rec = self._gold_trees.get(str(rec.get("id")), rec)
-            reasoning_text, steps = linearize_proof(rec, self.reasoning_format, tree_record=tree_rec)
+            chain = ReasoningChain.from_entailmentbank(rec, tree_record=tree_rec, fmt=self.reasoning_format)
+            steps = chain.to_dicts()
+            reasoning_text = chain.text
             facts = facts_block(sent_map)
 
             if self.use_question and question:
