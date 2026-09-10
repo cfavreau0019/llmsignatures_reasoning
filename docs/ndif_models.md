@@ -56,8 +56,13 @@ commit it):
 
 ## Version notes
 
-- Tested against the `nnsight` 0.5/0.6 trace API (`model.trace`, `.save()`,
-  `model.generator.output` for generated ids).
-- If `LanguageModel(...)` rejects `torch_dtype`, drop `model.dtype` handling or
-  pass the arg your installed version expects — it is the only version-sensitive
-  spot in `extraction/model.py`.
+- Tested against `nnsight` 0.7 + `transformers` 5 (`model.trace`, `.save()`,
+  `model.generator.output` for generated ids). `extraction/model.py` normalises
+  the residual stream to `(seq, hidden)` and accesses layers in forward order,
+  which is what nnsight 0.7 requires.
+- On older stacks where `block.output` is a `(hidden, ...)` tuple, set
+  `ModelPaths.block_output_is_tuple = True`.
+- If `LanguageModel(...)` rejects `torch_dtype`, adjust `model.dtype` handling to
+  the arg your version expects.
+- `RT_MODEL_TESTS=1 python -m pytest tests/test_model_hidden_states.py` runs the
+  extraction path end-to-end against a local gpt2 (skipped by default).

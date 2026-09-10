@@ -18,3 +18,5 @@ data/raw/
 !data/raw/.gitkeep
 *.npz
 *.parquet
+probe_output/
+.ipynb_checkpoints/

@@ -30,7 +30,7 @@ dataset ──▶ reasoning chain ──▶ targeted hidden states ──▶ tra
 | **`studies/hidden_state_trajectories/`** | **analysis of the trajectories** — profiles, outcome comparisons, plots |
 | `scripts/run_extraction.py` | CLI for a run |
 | `scripts/recompute_features.py` | recompute features from stored hidden states (no model) |
-| `notebooks/` | `explore_openbookqa.ipynb`, `explore_entailmentbank.ipynb` — dataset walk-throughs |
+| `notebooks/` | `explore_*` dataset walk-throughs; `corrupt_and_probe_entailmentbank.ipynb` — pick chains, corrupt them, run a model, read out geometry + hidden states at `L/3` & `2L/3` |
 | `src/reasoning_trajectories/env.py` | optional `.env` loading (auto-run on package import) |
 | `tests/` | analytic geometry checks (circle, helix, straight line) + plumbing |
 
@@ -160,7 +160,9 @@ bad.meta["corruption"]                              # what changed
 ```
 
 `premise_substitution_other_tree` / `conclusion_substitution` take
-`donors=DonorPool(other_chains)`.
+`donors=DonorPool(other_chains)`. To pick chains, corrupt them, and probe a
+model interactively, see
+[`notebooks/corrupt_and_probe_entailmentbank.ipynb`](notebooks/corrupt_and_probe_entailmentbank.ipynb).
 
 ### Adding another dataset
 
@@ -173,4 +175,5 @@ else changes.
 
 ```bash
 python -m pytest -q
+RT_MODEL_TESTS=1 python -m pytest tests/test_model_hidden_states.py -q   # opt-in: runs a local gpt2
 ```

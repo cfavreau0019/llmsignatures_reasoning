@@ -10,6 +10,9 @@ Responsibilities
 Residual-stream point convention (see ``extraction/layers.py``):
     point 0        -> token-embedding output
     point k (>=1)  -> output of transformer block k  (module ``layers[k-1]``)
+
+Tested against nnsight 0.7 / transformers 5, where ``block.output`` is the
+hidden-state tensor directly and Envoy access must be in forward order.
 """
 from __future__ import annotations
 
@@ -22,10 +25,15 @@ import torch
 
 @dataclass
 class ModelPaths:
-    """Attribute paths for the residual stream, per architecture family."""
+    """Attribute paths for the residual stream, per architecture family.
+
+    ``block_output_is_tuple``: whether ``block.output`` is ``(hidden, ...)`` (older
+    transformers) rather than the hidden-state tensor directly (transformers >= 5,
+    which the code is tested against). Flip it if a model still returns a tuple.
+    """
     blocks: str          # module list of transformer blocks
     embeddings: str       # token-embedding module
-    block_output_is_tuple: bool = True
+    block_output_is_tuple: bool = False
 
     @staticmethod
     def for_model(hf_name: str) -> "ModelPaths":
@@ -87,11 +95,16 @@ class ReasoningModel:
         return self.lm.tokenizer
 
     def _point_proxy(self, point_index: int):
-        """nnsight proxy for the hidden state at a residual-stream point."""
+        """nnsight proxy for the residual stream at a point, normalised to a
+        ``(seq, hidden)`` tensor. One text is traced at a time (batch == 1), so
+        ``reshape(-1, hidden)`` collapses any leading batch axis regardless of
+        whether this transformers version keeps one."""
         if point_index == 0:
-            return _getattr_path(self.lm, self.paths.embeddings).output
-        block = _getattr_path(self.lm, self.paths.blocks)[point_index - 1]
-        return block.output[0] if self.paths.block_output_is_tuple else block.output
+            proxy = _getattr_path(self.lm, self.paths.embeddings).output
+        else:
+            block = _getattr_path(self.lm, self.paths.blocks)[point_index - 1]
+            proxy = block.output[0] if self.paths.block_output_is_tuple else block.output
+        return proxy.reshape(-1, self.hidden_size)
 
     # ------------------------------------------------------------------ #
     def generate_reasoning(self, prompt: str, max_new_tokens: int, temperature: float = 0.0) -> str:
@@ -137,14 +150,18 @@ class ReasoningModel:
         token_layers = sorted(set(token_layers))
         points_for_means = list(range(self.n_layers + 1)) if want_layer_trajectory else []
 
+        # Access points in ascending (== forward) order in a single pass -- nnsight
+        # rejects out-of-order Envoy access. Means are reduced inside the trace so
+        # only one h-vector per layer crosses the wire on remote runs.
+        tok_saves: dict[int, object] = {}
+        mean_saves: dict[int, object] = {}
         with self.lm.trace(text, remote=self.remote):
-            tok_saves = {
-                l: self._point_proxy(l)[0, chain_start:, :].save() for l in token_layers
-            }
-            mean_saves = {
-                p: self._point_proxy(p)[0, chain_start:, :].mean(dim=0).save()
-                for p in points_for_means
-            }
+            for p in sorted(set(token_layers) | set(points_for_means)):
+                chain = self._point_proxy(p)[chain_start:, :]
+                if p in points_for_means:
+                    mean_saves[p] = chain.mean(dim=0).save()
+                if p in token_layers:
+                    tok_saves[p] = chain.save()
 
         token_hidden = {l: _to_numpy(v) for l, v in tok_saves.items()}
         layer_means = {p: _to_numpy(v).reshape(-1) for p, v in mean_saves.items()}
