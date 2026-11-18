@@ -20,3 +20,5 @@ data/raw/
 *.parquet
 probe_output/
 .ipynb_checkpoints/
+data/synthetic/
+artifacts/
