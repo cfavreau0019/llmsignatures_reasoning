@@ -1,0 +1,2029 @@
+{
+ "counts": {
+  "task1/train": 1313,
+  "task1/dev": 187,
+  "task1/test": 340,
+  "task2/train": 1313,
+  "task2/dev": 187,
+  "task2/test": 340,
+  "task3/train": 1313,
+  "task3/dev": 187,
+  "task3/test": 340,
+  "task3/all": 1840
+ },
+ "fields": {
+  "task1": {
+   "answer": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "Earth revolves around the sun."
+   },
+   "context": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "sent1: leo is a kind of constellation sent2: the earth revolving around the sun causes stars to appear in different areas in the sky at different times of year sent3: a constellation contains stars"
+   },
+   "depth_of_proof": {
+    "types": {
+     "integer": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": 2
+   },
+   "full_text_proof": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": " [BECAUSE] leo is a kind of constellation [AND] a constellation contains stars [INFER] int1: leo is a constellation containing stars [BECAUSE] int1 [AND] the earth revolving around the sun causes stars to appear in different areas in the sky at different times of year [INFER] int2: the earth revolving around the sun causes leo to appear in different areas in the sky at different times of year"
+   },
+   "hypothesis": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "the earth revolving around the sun causes leo to appear in different areas in the sky at different times of year"
+   },
+   "id": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "MDSA_2009_4_30"
+   },
+   "length_of_proof": {
+    "types": {
+     "integer": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": 2
+   },
+   "meta": {
+    "types": {
+     "object": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": null
+   },
+   "meta.add_list": {
+    "types": {
+     "array": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 670,
+    "example": []
+   },
+   "meta.add_list[]": {
+    "types": {
+     "object": 2583
+    },
+    "records_with_path": 1170,
+    "empty_values": 0,
+    "example": {
+     "sid": "sent2",
+     "fact": "earth is a kind of celestial object"
+    }
+   },
+   "meta.add_list[].fact": {
+    "types": {
+     "string": 2583
+    },
+    "records_with_path": 1170,
+    "empty_values": 0,
+    "example": "earth is a kind of celestial object"
+   },
+   "meta.add_list[].sid": {
+    "types": {
+     "string": 2583
+    },
+    "records_with_path": 1170,
+    "empty_values": 0,
+    "example": "sent2"
+   },
+   "meta.answer_text": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "Earth revolves around the sun."
+   },
+   "meta.core_concepts": {
+    "types": {
+     "array": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 3,
+    "example": [
+     "the earth revolving around the sun causes stars to appear in different areas in the sky at different times of year"
+    ]
+   },
+   "meta.core_concepts[]": {
+    "types": {
+     "string": 3039
+    },
+    "records_with_path": 1837,
+    "empty_values": 0,
+    "example": "the earth revolving around the sun causes stars to appear in different areas in the sky at different times of year"
+   },
+   "meta.delete_list": {
+    "types": {
+     "array": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": null
+   },
+   "meta.delete_list[]": {
+    "types": {
+     "object": 36181
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": {
+     "uuid": "02f7-3d00-6d43-0289",
+     "fact": "revolving is a kind of motion"
+    }
+   },
+   "meta.delete_list[].fact": {
+    "types": {
+     "string": 36181
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "revolving is a kind of motion"
+   },
+   "meta.delete_list[].uuid": {
+    "types": {
+     "string": 36181
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "02f7-3d00-6d43-0289"
+   },
+   "meta.distractors": {
+    "types": {
+     "array": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 1840,
+    "example": []
+   },
+   "meta.distractors_relevance": {
+    "types": {
+     "array": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 1840,
+    "example": []
+   },
+   "meta.hypothesis_id": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "int2"
+   },
+   "meta.intermediate_conclusions": {
+    "types": {
+     "object": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": null
+   },
+   "meta.intermediate_conclusions.*": {
+    "types": {
+     "string": 5881
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "leo is a constellation containing stars"
+   },
+   "meta.lisp_proof": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "((((sent1 sent3) -> int1) sent2) -> int2)"
+   },
+   "meta.polish_proof": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "# int2 & # int1 & sent1 sent3 sent2"
+   },
+   "meta.question_text": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "Stars are organized into patterns called constellations. One constellation is named Leo. Which statement best explains why Leo appears in different areas of the sky throughout the year?"
+   },
+   "meta.step_proof": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "sent1 & sent3 -> int1: leo is a constellation containing stars; int1 & sent2 -> hypothesis; "
+   },
+   "meta.triples": {
+    "types": {
+     "object": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": null
+   },
+   "meta.triples.*": {
+    "types": {
+     "string": 8106
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "leo is a kind of constellation"
+   },
+   "meta.worldtree_provenance": {
+    "types": {
+     "object": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": null
+   },
+   "meta.worldtree_provenance.*": {
+    "types": {
+     "object": 8106
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": {
+     "uuid": "db62-4c2e-6a9d-8b12",
+     "original_text": "a constellation contains stars"
+    }
+   },
+   "meta.worldtree_provenance.*.original_text": {
+    "types": {
+     "string": 8106
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "a constellation contains stars"
+   },
+   "meta.worldtree_provenance.*.uuid": {
+    "types": {
+     "string": 8106
+    },
+    "records_with_path": 1840,
+    "empty_values": 2583,
+    "example": "db62-4c2e-6a9d-8b12"
+   },
+   "proof": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "sent1 & sent3 -> int1: leo is a constellation containing stars; int1 & sent2 -> hypothesis; "
+   },
+   "question": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "Stars are organized into patterns called constellations. One constellation is named Leo. Which statement best explains why Leo appears in different areas of the sky throughout the year?"
+   }
+  },
+  "task2": {
+   "answer": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "Earth revolves around the sun."
+   },
+   "context": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "sent1: leo is a kind of constellation sent2: to be found in means to be contained in sent3: move around means revolve sent4: if something is a part of something else then that something else contains that something sent5: being around something means surrounding that something sent6: a circle is a kind of shape sent7: revolving around something means orbiting that something sent8: a motion is a kind of event / action sent9: including means containing sent10: motion is when moves an object / something to a direction sent11: planets in the solar system orbit the sun sent12: approximately means about sent13: planets orbit stars sent14: how something appears is how that something looks sent15: throughout means over sent16: motion / movement means moving / to move sent17: a constellation contains stars sent18: years ( y ) are a metric unit used for measuring time generally used for values between 1 and 14000000000 sent19: similar means in common sent20: the solar system is a kind of system sent21: moving in a circle means moving in a circular motion sent22: a celestial body travelling around another celestial body means that celestial body completes a cycle around that other celestial body sent23: rotation is the circular movement of an object around a center / axis sent24: an orbit is a kind of regular path sent25: the earth revolving around the sun causes stars to appear in different areas in the sky at different times of year"
+   },
+   "depth_of_proof": {
+    "types": {
+     "integer": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": 2
+   },
+   "full_text_proof": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": " [BECAUSE] leo is a kind of constellation [AND] a constellation contains stars [INFER] int1: leo is a constellation containing stars [BECAUSE] int1 [AND] the earth revolving around the sun causes stars to appear in different areas in the sky at different times of year [INFER] int2: the earth revolving around the sun causes leo to appear in different areas in the sky at different times of year"
+   },
+   "hypothesis": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "the earth revolving around the sun causes leo to appear in different areas in the sky at different times of year"
+   },
+   "id": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "MDSA_2009_4_30"
+   },
+   "length_of_proof": {
+    "types": {
+     "integer": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": 2
+   },
+   "meta": {
+    "types": {
+     "object": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": null
+   },
+   "meta.add_list": {
+    "types": {
+     "array": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 670,
+    "example": []
+   },
+   "meta.add_list[]": {
+    "types": {
+     "object": 2583
+    },
+    "records_with_path": 1170,
+    "empty_values": 0,
+    "example": {
+     "sid": "sent2",
+     "fact": "earth is a kind of celestial object"
+    }
+   },
+   "meta.add_list[].fact": {
+    "types": {
+     "string": 2583
+    },
+    "records_with_path": 1170,
+    "empty_values": 0,
+    "example": "earth is a kind of celestial object"
+   },
+   "meta.add_list[].sid": {
+    "types": {
+     "string": 2583
+    },
+    "records_with_path": 1170,
+    "empty_values": 0,
+    "example": "sent2"
+   },
+   "meta.answer_text": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "Earth revolves around the sun."
+   },
+   "meta.core_concepts": {
+    "types": {
+     "array": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 3,
+    "example": [
+     "the earth revolving around the sun causes stars to appear in different areas in the sky at different times of year"
+    ]
+   },
+   "meta.core_concepts[]": {
+    "types": {
+     "string": 3039
+    },
+    "records_with_path": 1837,
+    "empty_values": 0,
+    "example": "the earth revolving around the sun causes stars to appear in different areas in the sky at different times of year"
+   },
+   "meta.delete_list": {
+    "types": {
+     "array": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": null
+   },
+   "meta.delete_list[]": {
+    "types": {
+     "object": 36181
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": {
+     "uuid": "02f7-3d00-6d43-0289",
+     "fact": "revolving is a kind of motion"
+    }
+   },
+   "meta.delete_list[].fact": {
+    "types": {
+     "string": 36181
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "revolving is a kind of motion"
+   },
+   "meta.delete_list[].uuid": {
+    "types": {
+     "string": 36181
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "02f7-3d00-6d43-0289"
+   },
+   "meta.distractors": {
+    "types": {
+     "array": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": null
+   },
+   "meta.distractors[]": {
+    "types": {
+     "string": 37894
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "sent7"
+   },
+   "meta.distractors_relevance": {
+    "types": {
+     "array": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": null
+   },
+   "meta.distractors_relevance[]": {
+    "types": {
+     "number": 37894
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": -8.32327
+   },
+   "meta.hypothesis_id": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "int2"
+   },
+   "meta.intermediate_conclusions": {
+    "types": {
+     "object": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": null
+   },
+   "meta.intermediate_conclusions.*": {
+    "types": {
+     "string": 5881
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "leo is a constellation containing stars"
+   },
+   "meta.lisp_proof": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "((((sent1 sent17) -> int1) sent25) -> int2)"
+   },
+   "meta.polish_proof": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "# int2 & # int1 & sent1 sent17 sent25"
+   },
+   "meta.question_text": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "Stars are organized into patterns called constellations. One constellation is named Leo. Which statement best explains why Leo appears in different areas of the sky throughout the year?"
+   },
+   "meta.step_proof": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "sent1 & sent17 -> int1: leo is a constellation containing stars; int1 & sent25 -> hypothesis; "
+   },
+   "meta.triples": {
+    "types": {
+     "object": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": null
+   },
+   "meta.triples.*": {
+    "types": {
+     "string": 46000
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "leo is a kind of constellation"
+   },
+   "meta.worldtree_provenance": {
+    "types": {
+     "object": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": null
+   },
+   "meta.worldtree_provenance.*": {
+    "types": {
+     "object": 8106
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": {
+     "uuid": "db62-4c2e-6a9d-8b12",
+     "original_text": "a constellation contains stars"
+    }
+   },
+   "meta.worldtree_provenance.*.original_text": {
+    "types": {
+     "string": 8106
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "a constellation contains stars"
+   },
+   "meta.worldtree_provenance.*.uuid": {
+    "types": {
+     "string": 8106
+    },
+    "records_with_path": 1840,
+    "empty_values": 2583,
+    "example": "db62-4c2e-6a9d-8b12"
+   },
+   "proof": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "sent1 & sent17 -> int1: leo is a constellation containing stars; int1 & sent25 -> hypothesis; "
+   },
+   "question": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "Stars are organized into patterns called constellations. One constellation is named Leo. Which statement best explains why Leo appears in different areas of the sky throughout the year?"
+   }
+  },
+  "task3": {
+   "answer": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "Earth revolves around the sun."
+   },
+   "context": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "sent1: leo is a kind of constellation sent2: different seasons occur during different times of the year sent3: a star is a kind of celestial object / celestial body sent4: a star is a kind of celestial object; celestial body sent5: cycle is similar to pattern sent6: a constellation contains stars sent7: the earth revolves around the sun sent8: yearly means every year sent9: each season occurs once per year sent10: area is similar to location sent11: earth is a kind of celestial object sent12: a complete revolution; orbit of the earth around the sun takes 1; one year; solar year; earth year sent13: area means a place sent14: annual means once per year sent15: earth is a kind of planet sent16: place means area sent17: the earth revolving around the sun causes stars to appear in different areas in the sky at different times of year sent18: occur is similar to appear sent19: earth is a kind of planet sent20: the sun is a kind of star sent21: the sun is a kind of star sent22: revolving around something means orbiting that something sent23: revolving around means orbiting sent24: throughout means over sent25: the earth revolves around the sun"
+   },
+   "hypothesis": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "the earth revolving around the sun causes leo to appear in different areas in the sky at different times of year"
+   },
+   "id": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "MDSA_2009_4_30"
+   },
+   "meta": {
+    "types": {
+     "object": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": null
+   },
+   "meta.answer_text": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "Earth revolves around the sun."
+   },
+   "meta.core_concepts": {
+    "types": {
+     "array": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 3,
+    "example": [
+     "the earth revolving around the sun causes stars to appear in different areas in the sky at different times of year"
+    ]
+   },
+   "meta.core_concepts[]": {
+    "types": {
+     "string": 3039
+    },
+    "records_with_path": 1837,
+    "empty_values": 0,
+    "example": "the earth revolving around the sun causes stars to appear in different areas in the sky at different times of year"
+   },
+   "meta.question_text": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "Stars are organized into patterns called constellations. One constellation is named Leo. Which statement best explains why Leo appears in different areas of the sky throughout the year?"
+   },
+   "meta.triples": {
+    "types": {
+     "object": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": null
+   },
+   "meta.triples.*": {
+    "types": {
+     "string": 46000
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "leo is a kind of constellation"
+   },
+   "meta.worldtree_provenance": {
+    "types": {
+     "array": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": null
+   },
+   "meta.worldtree_provenance[]": {
+    "types": {
+     "object": 46000
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": {
+     "sid": "sent17",
+     "uuid": "b018-4375-d391-cb98",
+     "relevance_score": 0.9986516833305359
+    }
+   },
+   "meta.worldtree_provenance[].relevance_score": {
+    "types": {
+     "number": 46000
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": 0.9986516833305359
+   },
+   "meta.worldtree_provenance[].sid": {
+    "types": {
+     "string": 46000
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "sent17"
+   },
+   "meta.worldtree_provenance[].uuid": {
+    "types": {
+     "string": 46000
+    },
+    "records_with_path": 1840,
+    "empty_values": 369,
+    "example": "b018-4375-d391-cb98"
+   },
+   "proof": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 1840,
+    "example": ""
+   },
+   "question": {
+    "types": {
+     "string": 1840
+    },
+    "records_with_path": 1840,
+    "empty_values": 0,
+    "example": "Stars are organized into patterns called constellations. One constellation is named Leo. Which statement best explains why Leo appears in different areas of the sky throughout the year?"
+   }
+  }
+ },
+ "graph": {
+  "n_trees": 1840,
+  "depth": {
+   "train": {
+    "summary": {
+     "n": 1313,
+     "min": 1,
+     "p25": 1,
+     "median": 2,
+     "mean": 2.634,
+     "p75": 3,
+     "p95": 5,
+     "max": 12
+    },
+    "hist": {
+     "1": 331,
+     "2": 380,
+     "3": 277,
+     "4": 175,
+     "5": 95,
+     "6": 37,
+     "7": 12,
+     "8": 3,
+     "10": 2,
+     "12": 1
+    }
+   },
+   "dev": {
+    "summary": {
+     "n": 187,
+     "min": 1,
+     "p25": 1,
+     "median": 2,
+     "mean": 2.588,
+     "p75": 3,
+     "p95": 6,
+     "max": 7
+    },
+    "hist": {
+     "1": 51,
+     "2": 64,
+     "3": 28,
+     "4": 18,
+     "5": 13,
+     "6": 7,
+     "7": 6
+    }
+   },
+   "test": {
+    "summary": {
+     "n": 340,
+     "min": 1,
+     "p25": 1,
+     "median": 2,
+     "mean": 2.641,
+     "p75": 4,
+     "p95": 5,
+     "max": 7
+    },
+    "hist": {
+     "1": 89,
+     "2": 93,
+     "3": 67,
+     "4": 51,
+     "5": 24,
+     "6": 14,
+     "7": 2
+    }
+   },
+   "all": {
+    "summary": {
+     "n": 1840,
+     "min": 1,
+     "p25": 1,
+     "median": 2,
+     "mean": 2.631,
+     "p75": 4,
+     "p95": 5,
+     "max": 12
+    },
+    "hist": {
+     "1": 471,
+     "2": 537,
+     "3": 372,
+     "4": 244,
+     "5": 132,
+     "6": 58,
+     "7": 20,
+     "8": 3,
+     "10": 2,
+     "12": 1
+    }
+   }
+  },
+  "n_steps": {
+   "train": {
+    "summary": {
+     "n": 1313,
+     "min": 1,
+     "p25": 1,
+     "median": 3,
+     "mean": 3.18,
+     "p75": 4,
+     "p95": 8,
+     "max": 17
+    },
+    "hist": {
+     "1": 331,
+     "2": 325,
+     "3": 221,
+     "4": 162,
+     "5": 84,
+     "6": 59,
+     "7": 49,
+     "8": 32,
+     "9": 21,
+     "10": 14,
+     "11": 9,
+     "12": 2,
+     "13": 2,
+     "15": 1,
+     "17": 1
+    }
+   },
+   "dev": {
+    "summary": {
+     "n": 187,
+     "min": 1,
+     "p25": 1,
+     "median": 2,
+     "mean": 3.193,
+     "p75": 4,
+     "p95": 9,
+     "max": 15
+    },
+    "hist": {
+     "1": 51,
+     "2": 53,
+     "3": 30,
+     "4": 12,
+     "5": 14,
+     "6": 5,
+     "7": 4,
+     "8": 7,
+     "9": 3,
+     "10": 3,
+     "11": 3,
+     "13": 1,
+     "15": 1
+    }
+   },
+   "test": {
+    "summary": {
+     "n": 340,
+     "min": 1,
+     "p25": 1,
+     "median": 2,
+     "mean": 3.262,
+     "p75": 4,
+     "p95": 9,
+     "max": 11
+    },
+    "hist": {
+     "1": 87,
+     "2": 84,
+     "3": 52,
+     "4": 38,
+     "5": 28,
+     "6": 14,
+     "7": 9,
+     "8": 10,
+     "9": 6,
+     "10": 7,
+     "11": 5
+    }
+   },
+   "all": {
+    "summary": {
+     "n": 1840,
+     "min": 1,
+     "p25": 1,
+     "median": 2,
+     "mean": 3.196,
+     "p75": 4,
+     "p95": 8,
+     "max": 17
+    },
+    "hist": {
+     "1": 469,
+     "2": 462,
+     "3": 303,
+     "4": 212,
+     "5": 126,
+     "6": 78,
+     "7": 62,
+     "8": 49,
+     "9": 30,
+     "10": 24,
+     "11": 17,
+     "12": 2,
+     "13": 3,
+     "15": 2,
+     "17": 1
+    }
+   }
+  },
+  "n_leaves": {
+   "train": {
+    "summary": {
+     "n": 1313,
+     "min": 2,
+     "p25": 3,
+     "median": 4,
+     "mean": 4.39,
+     "p75": 5,
+     "p95": 9,
+     "max": 17
+    },
+    "hist": {
+     "2": 270,
+     "3": 306,
+     "4": 242,
+     "5": 178,
+     "6": 106,
+     "7": 69,
+     "8": 61,
+     "9": 34,
+     "10": 20,
+     "11": 9,
+     "12": 9,
+     "13": 6,
+     "16": 1,
+     "17": 2
+    }
+   },
+   "dev": {
+    "summary": {
+     "n": 187,
+     "min": 2,
+     "p25": 3,
+     "median": 4,
+     "mean": 4.364,
+     "p75": 5,
+     "p95": 10,
+     "max": 15
+    },
+    "hist": {
+     "2": 41,
+     "3": 51,
+     "4": 35,
+     "5": 17,
+     "6": 16,
+     "7": 4,
+     "8": 2,
+     "9": 10,
+     "10": 4,
+     "11": 3,
+     "12": 2,
+     "14": 1,
+     "15": 1
+    }
+   },
+   "test": {
+    "summary": {
+     "n": 340,
+     "min": 1,
+     "p25": 3,
+     "median": 4,
+     "mean": 4.488,
+     "p75": 6,
+     "p95": 10,
+     "max": 12
+    },
+    "hist": {
+     "1": 1,
+     "2": 78,
+     "3": 65,
+     "4": 53,
+     "5": 47,
+     "6": 43,
+     "7": 18,
+     "8": 9,
+     "9": 7,
+     "10": 7,
+     "11": 6,
+     "12": 6
+    }
+   },
+   "all": {
+    "summary": {
+     "n": 1840,
+     "min": 1,
+     "p25": 3,
+     "median": 4,
+     "mean": 4.405,
+     "p75": 5,
+     "p95": 9,
+     "max": 17
+    },
+    "hist": {
+     "1": 1,
+     "2": 389,
+     "3": 422,
+     "4": 330,
+     "5": 242,
+     "6": 165,
+     "7": 91,
+     "8": 72,
+     "9": 51,
+     "10": 31,
+     "11": 18,
+     "12": 17,
+     "13": 6,
+     "14": 1,
+     "15": 1,
+     "16": 1,
+     "17": 2
+    }
+   }
+  },
+  "shape": {
+   "train": {
+    "branched": 386,
+    "linear": 596,
+    "single-step": 331
+   },
+   "dev": {
+    "branched": 56,
+    "linear": 80,
+    "single-step": 51
+   },
+   "test": {
+    "branched": 99,
+    "linear": 154,
+    "single-step": 87
+   },
+   "all": {
+    "branched": 541,
+    "linear": 830,
+    "single-step": 469
+   }
+  },
+  "fan_in_per_step": {
+   "summary": {
+    "n": 5881,
+    "min": 1,
+    "p25": 2,
+    "median": 2,
+    "mean": 2.099,
+    "p75": 2,
+    "p95": 3,
+    "max": 5
+   },
+   "hist": {
+    "1": 12,
+    "2": 5334,
+    "3": 477,
+    "4": 54,
+    "5": 4
+   }
+  },
+  "step_kinds": {
+   "int-only": 735,
+   "leaf-only": 2619,
+   "mixed": 2527
+  },
+  "join_steps_per_tree": {
+   "0": 1299,
+   "1": 380,
+   "2": 107,
+   "3": 42,
+   "4": 9,
+   "5": 2,
+   "7": 1
+  },
+  "base_steps_per_tree": {
+   "1": 1303,
+   "2": 368,
+   "3": 113,
+   "4": 44,
+   "5": 9,
+   "6": 2,
+   "8": 1
+  },
+  "max_width_per_tree": {
+   "1": 1297,
+   "2": 372,
+   "3": 115,
+   "4": 44,
+   "5": 9,
+   "6": 2,
+   "8": 1
+  },
+  "leaf_distance_to_root": {
+   "summary": {
+    "n": 8093,
+    "min": 1,
+    "p25": 1,
+    "median": 2,
+    "mean": 2.514,
+    "p75": 3,
+    "p95": 5,
+    "max": 10
+   },
+   "hist": {
+    "1": 2196,
+    "2": 2427,
+    "3": 1711,
+    "4": 1016,
+    "5": 476,
+    "6": 182,
+    "7": 66,
+    "8": 9,
+    "9": 6,
+    "10": 4
+   }
+  },
+  "mean_fan_in_by_shape": {
+   "single-step": 2.19,
+   "linear": 2.136,
+   "branched": 2.061
+  },
+  "steps_by_shape": {
+   "single-step": {
+    "n": 469,
+    "min": 1,
+    "p25": 1,
+    "median": 1,
+    "mean": 1,
+    "p75": 1,
+    "p95": 1,
+    "max": 1
+   },
+   "linear": {
+    "n": 830,
+    "min": 2,
+    "p25": 2,
+    "median": 2,
+    "mean": 2.67,
+    "p75": 3,
+    "p95": 4,
+    "max": 7
+   },
+   "branched": {
+    "n": 541,
+    "min": 3,
+    "p25": 4,
+    "median": 5,
+    "mean": 5.908,
+    "p75": 7,
+    "p95": 10,
+    "max": 17
+   }
+  },
+  "depth_by_shape": {
+   "single-step": {
+    "n": 469,
+    "min": 1,
+    "p25": 1,
+    "median": 1,
+    "mean": 1,
+    "p75": 1,
+    "p95": 1,
+    "max": 1
+   },
+   "linear": {
+    "n": 830,
+    "min": 1,
+    "p25": 2,
+    "median": 2,
+    "mean": 2.661,
+    "p75": 3,
+    "p95": 4,
+    "max": 7
+   },
+   "branched": {
+    "n": 541,
+    "min": 2,
+    "p25": 3,
+    "median": 4,
+    "mean": 3.998,
+    "p75": 5,
+    "p95": 6,
+    "max": 12
+   }
+  },
+  "depth_x_steps": {
+   "1": {
+    "1": 469,
+    "3": 2
+   },
+   "2": {
+    "2": 462,
+    "3": 73,
+    "4": 2
+   },
+   "3": {
+    "3": 228,
+    "4": 108,
+    "5": 29,
+    "6": 5,
+    "7": 2
+   },
+   "4": {
+    "4": 102,
+    "5": 67,
+    "6": 37,
+    "7": 23,
+    "8": 10,
+    "9": 2,
+    "10": 3
+   },
+   "5": {
+    "5": 30,
+    "6": 32,
+    "7": 24,
+    "8": 22,
+    "9": 11,
+    "10": 7,
+    "11": 4,
+    "12": 1,
+    "13": 1
+   },
+   "6": {
+    "6": 4,
+    "7": 11,
+    "8": 14,
+    "9": 13,
+    "10": 10,
+    "11": 5,
+    "12": 1
+   },
+   "7": {
+    "7": 2,
+    "8": 3,
+    "9": 3,
+    "10": 2,
+    "11": 7,
+    "13": 1,
+    "15": 1,
+    "17": 1
+   },
+   "8": {
+    "9": 1,
+    "10": 2
+   },
+   "10": {
+    "11": 1,
+    "15": 1
+   },
+   "12": {
+    "13": 1
+   }
+  },
+  "checks": {
+   "trees_with_reused_node(DAG not tree)": 151,
+   "trees_with_forward_reference": 0,
+   "trees_with_nonstandard_token": 0,
+   "trees_final_step_not_unique_last_hypothesis": 0,
+   "trees_intermediates_not_numbered_1..n-1_in_order": 0,
+   "trees_with_unused_triple": 0,
+   "trees_with_dangling_intermediate": 4,
+   "trees_with_undefined_intermediate_premise": 0,
+   "depth_of_proof_field == recomputed depth": 1794,
+   "depth_of_proof_field > recomputed depth": 35,
+   "depth_of_proof_field < recomputed depth": 11,
+   "length_of_proof_field == n_steps": 1840,
+   "length_of_proof_field < depth_of_proof_field": 26
+  },
+  "depth_field_vs_recomputed_examples": [
+   {
+    "id": "Mercury_410595",
+    "split": "train",
+    "depth_of_proof": 5,
+    "recomputed_depth": 4,
+    "length_of_proof": 6
+   },
+   {
+    "id": "NAEP_2000_4_S12+1",
+    "split": "train",
+    "depth_of_proof": 2,
+    "recomputed_depth": 1,
+    "length_of_proof": 1
+   },
+   {
+    "id": "MDSA_2010_8_39",
+    "split": "train",
+    "depth_of_proof": 9,
+    "recomputed_depth": 10,
+    "length_of_proof": 11
+   },
+   {
+    "id": "Mercury_7120698",
+    "split": "train",
+    "depth_of_proof": 2,
+    "recomputed_depth": 1,
+    "length_of_proof": 1
+   },
+   {
+    "id": "Mercury_7081428",
+    "split": "train",
+    "depth_of_proof": 5,
+    "recomputed_depth": 4,
+    "length_of_proof": 5
+   },
+   {
+    "id": "NYSEDREGENTS_2006_8_3",
+    "split": "train",
+    "depth_of_proof": 2,
+    "recomputed_depth": 1,
+    "length_of_proof": 1
+   },
+   {
+    "id": "Mercury_7176173",
+    "split": "train",
+    "depth_of_proof": 3,
+    "recomputed_depth": 2,
+    "length_of_proof": 2
+   },
+   {
+    "id": "NYSEDREGENTS_2009_4_1",
+    "split": "train",
+    "depth_of_proof": 2,
+    "recomputed_depth": 1,
+    "length_of_proof": 1
+   }
+  ]
+ },
+ "integrity": {
+  "duplicate_ids": {
+   "n_ids": 6,
+   "records_affected": 12,
+   "ids": {
+    "MCAS_2011_5_17": {
+     "split": [
+      "train",
+      "train"
+     ],
+     "hypotheses_differ": true
+    },
+    "Mercury_7121940": {
+     "split": [
+      "train",
+      "train"
+     ],
+     "hypotheses_differ": false
+    },
+    "Mercury_7135870": {
+     "split": [
+      "train",
+      "train"
+     ],
+     "hypotheses_differ": true
+    },
+    "Mercury_407660": {
+     "split": [
+      "train",
+      "train"
+     ],
+     "hypotheses_differ": true
+    },
+    "NYSEDREGENTS_2004_4_6": {
+     "split": [
+      "train",
+      "train"
+     ],
+     "hypotheses_differ": true
+    },
+    "Mercury_SC_405304": {
+     "split": [
+      "test",
+      "test"
+     ],
+     "hypotheses_differ": false
+    }
+   }
+  },
+  "task2_row_aligned_with_task1(id+hypothesis+question)": "1840/1840",
+  "task3_row_aligned_with_task1(id+hypothesis+question)": "1840/1840",
+  "task1_context_equals_triples": 1840,
+  "task1_context_keys_are_sent1..n": 1840,
+  "task1_proof_equals_step_proof": 1840,
+  "task1_hypothesis_text_equals_intermediate_conclusions[hypothesis_id]": 1840,
+  "task1_hypothesis_matches_that_after_norm": 1840,
+  "task1_hypothesis_id==int{length_of_proof}": 1840,
+  "task1_n_intermediate_conclusions==length_of_proof": 1840,
+  "task1_inline_int_text_vs_meta": {
+   "inline_conclusions": 4041,
+   "mismatches": 0
+  },
+  "task1_final_step_has_inline_text": 0,
+  "task1_leaf_text_in_own_provenance_original_text": "6779/8106",
+  "task1_provenance_keys_equal_triple_keys": 1840,
+  "task1_add_list_sids_subset_of_triples": 1840,
+  "task2_context_has_25_sentences": 1840,
+  "task2_gold_ids_in_context_and_not_distractor": 1840,
+  "task2_gold_leaf_text_set == task1_leaf_text_set": 1840,
+  "task2_triples_equals_context": 1840,
+  "task2_proof_leaf_ids_renumbered_vs_task1": 1837,
+  "task2_meta.triples_size": {
+   "25": 1840
+  },
+  "task2_distractor_count": {
+   "n": 1840,
+   "min": 8,
+   "p25": 20,
+   "median": 21,
+   "mean": 20.595,
+   "p75": 22,
+   "p95": 23,
+   "max": 24
+  },
+  "task2_gold_sentence_position_in_context": {
+   "n": 8106,
+   "min": 1,
+   "p25": 7,
+   "median": 13,
+   "mean": 12.958,
+   "p75": 19,
+   "p95": 24,
+   "max": 25
+  },
+  "task3_gold_leaves_found_in_context_exact": "5195/8106",
+  "task3_gold_leaves_found_in_context_after_normalisation": "5614/8106",
+  "task3_trees_with_at_least_one_gold_leaf_missing_from_context": "985/1840",
+  "task3_per_tree_gold_coverage": {
+   "n": 1840,
+   "min": 0.0,
+   "p25": 0.6,
+   "median": 0.8,
+   "mean": 0.766,
+   "p75": 1.0,
+   "p95": 1.0,
+   "max": 1.0
+  },
+  "task3_contexts_with_duplicate_sentences": "1597/1840",
+  "task3_context_equals_meta.triples": 1840,
+  "task3_all.jsonl_equals_concat_of_splits": true
+ },
+ "pipeline": {
+  "per_task_split": {
+   "task1/train": {
+    "examples": 1313,
+    "unique_ids": 1308,
+    "steps": {
+     "n": 1313,
+     "min": 1,
+     "p25": 1,
+     "median": 3,
+     "mean": 3.18,
+     "p75": 4,
+     "p95": 8,
+     "max": 17
+    },
+    "prompt_chars": {
+     "n": 1313,
+     "min": 190,
+     "p25": 312,
+     "median": 380,
+     "mean": 418.037,
+     "p75": 485,
+     "p95": 725,
+     "max": 1309
+    },
+    "reasoning_chars": {
+     "n": 1313,
+     "min": 112,
+     "p25": 300,
+     "median": 521,
+     "mean": 689.415,
+     "p75": 877,
+     "p95": 1844,
+     "max": 4338
+    },
+    "borrowed_proof": 0,
+    "n_distractors": {
+     "n": 1313,
+     "min": 0,
+     "p25": 0,
+     "median": 0,
+     "mean": 0,
+     "p75": 0,
+     "p95": 0,
+     "max": 0
+    }
+   },
+   "task1/dev": {
+    "examples": 187,
+    "unique_ids": 187,
+    "steps": {
+     "n": 187,
+     "min": 1,
+     "p25": 1,
+     "median": 2,
+     "mean": 3.193,
+     "p75": 4,
+     "p95": 9,
+     "max": 15
+    },
+    "prompt_chars": {
+     "n": 187,
+     "min": 200,
+     "p25": 308,
+     "median": 365,
+     "mean": 417.39,
+     "p75": 456,
+     "p95": 768,
+     "max": 1115
+    },
+    "reasoning_chars": {
+     "n": 187,
+     "min": 122,
+     "p25": 270,
+     "median": 456,
+     "mean": 698.321,
+     "p75": 814,
+     "p95": 2167,
+     "max": 3810
+    },
+    "borrowed_proof": 0,
+    "n_distractors": {
+     "n": 187,
+     "min": 0,
+     "p25": 0,
+     "median": 0,
+     "mean": 0,
+     "p75": 0,
+     "p95": 0,
+     "max": 0
+    }
+   },
+   "task1/test": {
+    "examples": 340,
+    "unique_ids": 339,
+    "steps": {
+     "n": 340,
+     "min": 1,
+     "p25": 1,
+     "median": 2,
+     "mean": 3.262,
+     "p75": 4,
+     "p95": 9,
+     "max": 11
+    },
+    "prompt_chars": {
+     "n": 340,
+     "min": 170,
+     "p25": 309,
+     "median": 383,
+     "mean": 423.432,
+     "p75": 508,
+     "p95": 783,
+     "max": 1145
+    },
+    "reasoning_chars": {
+     "n": 340,
+     "min": 92,
+     "p25": 299,
+     "median": 546,
+     "mean": 706.165,
+     "p75": 918,
+     "p95": 1931,
+     "max": 3074
+    },
+    "borrowed_proof": 0,
+    "n_distractors": {
+     "n": 340,
+     "min": 0,
+     "p25": 0,
+     "median": 0,
+     "mean": 0,
+     "p75": 0,
+     "p95": 0,
+     "max": 0
+    }
+   },
+   "task2/train": {
+    "examples": 1313,
+    "unique_ids": 1308,
+    "steps": {
+     "n": 1313,
+     "min": 1,
+     "p25": 1,
+     "median": 3,
+     "mean": 3.18,
+     "p75": 4,
+     "p95": 8,
+     "max": 17
+    },
+    "prompt_chars": {
+     "n": 1313,
+     "min": 1081,
+     "p25": 1443,
+     "median": 1566,
+     "mean": 1585.989,
+     "p75": 1704,
+     "p95": 1938,
+     "max": 3244
+    },
+    "reasoning_chars": {
+     "n": 1313,
+     "min": 112,
+     "p25": 300,
+     "median": 521,
+     "mean": 689.415,
+     "p75": 877,
+     "p95": 1844,
+     "max": 4338
+    },
+    "borrowed_proof": 0,
+    "n_distractors": {
+     "n": 1313,
+     "min": 8,
+     "p25": 20,
+     "median": 21,
+     "mean": 20.61,
+     "p75": 22,
+     "p95": 23,
+     "max": 23
+    }
+   },
+   "task2/dev": {
+    "examples": 187,
+    "unique_ids": 187,
+    "steps": {
+     "n": 187,
+     "min": 1,
+     "p25": 1,
+     "median": 2,
+     "mean": 3.193,
+     "p75": 4,
+     "p95": 9,
+     "max": 15
+    },
+    "prompt_chars": {
+     "n": 187,
+     "min": 1166,
+     "p25": 1466,
+     "median": 1565,
+     "mean": 1575.396,
+     "p75": 1679,
+     "p95": 1906,
+     "max": 2237
+    },
+    "reasoning_chars": {
+     "n": 187,
+     "min": 122,
+     "p25": 270,
+     "median": 456,
+     "mean": 698.321,
+     "p75": 814,
+     "p95": 2167,
+     "max": 3810
+    },
+    "borrowed_proof": 0,
+    "n_distractors": {
+     "n": 187,
+     "min": 10,
+     "p25": 20,
+     "median": 21,
+     "mean": 20.636,
+     "p75": 22,
+     "p95": 23,
+     "max": 23
+    }
+   },
+   "task2/test": {
+    "examples": 340,
+    "unique_ids": 339,
+    "steps": {
+     "n": 340,
+     "min": 1,
+     "p25": 1,
+     "median": 2,
+     "mean": 3.262,
+     "p75": 4,
+     "p95": 9,
+     "max": 11
+    },
+    "prompt_chars": {
+     "n": 340,
+     "min": 1076,
+     "p25": 1479,
+     "median": 1597,
+     "mean": 1604.115,
+     "p75": 1703,
+     "p95": 1941,
+     "max": 2707
+    },
+    "reasoning_chars": {
+     "n": 340,
+     "min": 92,
+     "p25": 299,
+     "median": 546,
+     "mean": 706.165,
+     "p75": 918,
+     "p95": 1931,
+     "max": 3074
+    },
+    "borrowed_proof": 0,
+    "n_distractors": {
+     "n": 340,
+     "min": 13,
+     "p25": 19,
+     "median": 21,
+     "mean": 20.512,
+     "p75": 22,
+     "p95": 23,
+     "max": 24
+    }
+   },
+   "task3/train": {
+    "examples": 1313,
+    "unique_ids": 1308,
+    "steps": {
+     "n": 1313,
+     "min": 1,
+     "p25": 1,
+     "median": 3,
+     "mean": 3.181,
+     "p75": 4,
+     "p95": 8,
+     "max": 17
+    },
+    "prompt_chars": {
+     "n": 1313,
+     "min": 954,
+     "p25": 1335,
+     "median": 1468,
+     "mean": 1505.983,
+     "p75": 1625,
+     "p95": 1904,
+     "max": 3921
+    },
+    "reasoning_chars": {
+     "n": 1313,
+     "min": 112,
+     "p25": 301,
+     "median": 521,
+     "mean": 689.77,
+     "p75": 877,
+     "p95": 1844,
+     "max": 4338
+    },
+    "borrowed_proof": 1313,
+    "n_distractors": {
+     "n": 1313,
+     "min": 0,
+     "p25": 0,
+     "median": 0,
+     "mean": 0,
+     "p75": 0,
+     "p95": 0,
+     "max": 0
+    }
+   },
+   "task3/dev": {
+    "examples": 187,
+    "unique_ids": 187,
+    "steps": {
+     "n": 187,
+     "min": 1,
+     "p25": 1,
+     "median": 2,
+     "mean": 3.193,
+     "p75": 4,
+     "p95": 9,
+     "max": 15
+    },
+    "prompt_chars": {
+     "n": 187,
+     "min": 984,
+     "p25": 1310,
+     "median": 1441,
+     "mean": 1456.251,
+     "p75": 1596,
+     "p95": 1779,
+     "max": 2127
+    },
+    "reasoning_chars": {
+     "n": 187,
+     "min": 122,
+     "p25": 270,
+     "median": 456,
+     "mean": 698.321,
+     "p75": 814,
+     "p95": 2167,
+     "max": 3810
+    },
+    "borrowed_proof": 187,
+    "n_distractors": {
+     "n": 187,
+     "min": 0,
+     "p25": 0,
+     "median": 0,
+     "mean": 0,
+     "p75": 0,
+     "p95": 0,
+     "max": 0
+    }
+   },
+   "task3/test": {
+    "examples": 340,
+    "unique_ids": 339,
+    "steps": {
+     "n": 340,
+     "min": 1,
+     "p25": 1,
+     "median": 2,
+     "mean": 3.262,
+     "p75": 4,
+     "p95": 9,
+     "max": 11
+    },
+    "prompt_chars": {
+     "n": 340,
+     "min": 991,
+     "p25": 1316,
+     "median": 1459,
+     "mean": 1494.721,
+     "p75": 1627,
+     "p95": 1913,
+     "max": 3401
+    },
+    "reasoning_chars": {
+     "n": 340,
+     "min": 92,
+     "p25": 299,
+     "median": 546,
+     "mean": 706.165,
+     "p75": 918,
+     "p95": 1931,
+     "max": 3074
+    },
+    "borrowed_proof": 340,
+    "n_distractors": {
+     "n": 340,
+     "min": 0,
+     "p25": 0,
+     "median": 0,
+     "mean": 0,
+     "p75": 0,
+     "p95": 0,
+     "max": 0
+    }
+   }
+  },
+  "example_fields": [
+   "answer_key",
+   "choice_labels",
+   "choices",
+   "context",
+   "id",
+   "meta",
+   "prompt",
+   "question"
+  ],
+  "example_meta_keys": [
+   "answer_text",
+   "dataset",
+   "depth_of_proof",
+   "entailment_steps",
+   "hypothesis",
+   "length_of_proof",
+   "n_distractors",
+   "proof_borrowed_from_task1",
+   "proof_raw",
+   "reasoning",
+   "reasoning_format",
+   "split",
+   "task"
+  ],
+  "examples_with_depth_of_proof_None": 0,
+  "steps_whose_premise_text_is_unresolved_id": 0,
+  "task3_records_borrowing_a_task1_tree_with_different_hypothesis": 4,
+  "example_instance": {
+   "id": "Mercury_SC_401371",
+   "question": "Which event occurs on a daily cycle?",
+   "choices": [
+    "The Sun rises and sets."
+   ],
+   "choice_labels": [
+    "A"
+   ],
+   "answer_key": "A",
+   "prompt": "Use the numbered facts to explain, step by step, why the statement is true.\n\nFacts:\n1. the sun rising / setting occurs once per day\n2. the sun setting is a kind of event\n3. the sun rising is a kind of event\n\nStatement: the sun rising and setting is the event that occurs once per day\n\nReasoning:",
+   "context": "1. the sun rising / setting occurs once per day\n2. the sun setting is a kind of event\n3. the sun rising is a kind of event"
+  },
+  "example_instance_meta": {
+   "dataset": "entailmentbank",
+   "task": 1,
+   "split": "dev",
+   "hypothesis": "the sun rising and setting is the event that occurs once per day",
+   "answer_text": "The Sun rises and sets.",
+   "reasoning": "1. Since [the sun rising / setting occurs once per day], and [the sun setting is a kind of event], and [the sun rising is a kind of event], it follows that the sun rising and setting is the event that occurs once per day.",
+   "reasoning_format": "natural",
+   "proof_raw": "sent1 & sent2 & sent3 -> hypothesis;",
+   "proof_borrowed_from_task1": false,
+   "depth_of_proof": 1,
+   "length_of_proof": 1,
+   "n_distractors": 0,
+   "entailment_steps": [
+    {
+     "step": 1,
+     "premise_ids": [
+      "sent1",
+      "sent2",
+      "sent3"
+     ],
+     "premises": [
+      "the sun rising / setting occurs once per day",
+      "the sun setting is a kind of event",
+      "the sun rising is a kind of event"
+     ],
+     "conclusion_id": "hypothesis",
+     "conclusion": "the sun rising and setting is the event that occurs once per day"
+    }
+   ]
+  }
+ },
+ "supporting_corpus": {
+  "entries": 11941,
+  "key_forms": {
+   "uuid-like": 9011,
+   "ET_addon:N": 2930
+  },
+  "words_per_sentence": {
+   "n": 11941,
+   "min": 1,
+   "p25": 6,
+   "median": 8,
+   "mean": 9.077,
+   "p75": 11,
+   "p95": 18,
+   "max": 38
+  },
+  "duplicate_sentences": 420,
+  "placeholder_entries": [
+   "ET_addon:0"
+  ],
+  "provenance_uuid_found_as_key": 5514,
+  "provenance_entries": 8106
+ }
+}

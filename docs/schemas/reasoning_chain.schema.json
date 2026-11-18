@@ -1,0 +1,205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "reasoning_trajectories/reasoning_chain.schema.json",
+  "title": "ReasoningChain (dataclasses.asdict) and its serialised steps",
+  "type": "object",
+  "required": [
+    "steps",
+    "fmt",
+    "source_id",
+    "meta",
+    "raw_text"
+  ],
+  "properties": {
+    "steps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Step"
+      },
+      "description": "[] for opaque `from_text` chains."
+    },
+    "fmt": {
+      "enum": [
+        "natural",
+        "structured",
+        "raw",
+        "text"
+      ]
+    },
+    "source_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "meta": {
+      "type": "object",
+      "properties": {
+        "condition": {
+          "enum": [
+            "valid",
+            "corrupted"
+          ]
+        },
+        "pair_id": {
+          "type": "string"
+        },
+        "corruption": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/Corruption"
+            }
+          ],
+          "description": "null on the `valid` member of a pair."
+        }
+      },
+      "additionalProperties": false
+    },
+    "raw_text": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Set only for opaque chains."
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Step": {
+      "title": "Step (frozen dataclass)",
+      "type": "object",
+      "required": [
+        "premises",
+        "conclusion",
+        "premise_ids",
+        "conclusion_id"
+      ],
+      "properties": {
+        "premises": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "conclusion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "premise_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(sent[0-9]+|int[0-9]+|SUB)$"
+          },
+          "description": "Parallel to `premises`; may be empty. `SUB` marks a corrupted slot."
+        },
+        "conclusion_id": {
+          "type": "string",
+          "pattern": "^(int[0-9]+|hypothesis|SUB)?$",
+          "description": "`intN`, `hypothesis` (final step), `SUB` (corrupted) or ''."
+        }
+      },
+      "additionalProperties": false
+    },
+    "StepDict": {
+      "title": "Step as serialised by ReasoningChain.to_dicts() / Example.meta['entailment_steps']",
+      "type": "object",
+      "required": [
+        "step",
+        "premise_ids",
+        "premises",
+        "conclusion_id",
+        "conclusion"
+      ],
+      "properties": {
+        "step": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "1-based position."
+        },
+        "premise_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(sent[0-9]+|int[0-9]+|SUB)$"
+          }
+        },
+        "premises": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "conclusion_id": {
+          "type": "string",
+          "pattern": "^(int[0-9]+|hypothesis|SUB)?$"
+        },
+        "conclusion": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "Corruption": {
+      "title": "ReasoningChain.meta['corruption'] change record",
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "step_shuffle",
+            "premise_substitution",
+            "premise_substitution_other_tree",
+            "conclusion_substitution"
+          ]
+        },
+        "skipped": {
+          "type": "string",
+          "description": "Present when the corruption was a no-op."
+        },
+        "permutation": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "step": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "premise_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "old": {
+          "type": "string"
+        },
+        "new": {
+          "type": "string"
+        },
+        "propagated_to": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "x-cross-field-invariants": [
+    "raw_text is not None  <=>  fmt == 'text'  <=>  steps == []",
+    "at most the final step has conclusion_id == 'hypothesis' (before corruption)",
+    "len(premise_ids) in (0, len(premises))",
+    "a corrupted chain has meta.condition == 'corrupted' and meta.corruption.kind in CORRUPTIONS"
+  ]
+}

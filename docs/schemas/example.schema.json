@@ -1,0 +1,173 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "reasoning_trajectories/example.schema.json",
+  "title": "Example (dataclasses.asdict) as yielded by EntailmentBank / PairedCorruption",
+  "type": "object",
+  "required": [
+    "id",
+    "question",
+    "choices",
+    "choice_labels",
+    "answer_key",
+    "prompt",
+    "context",
+    "meta"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Raw `id`. Paired corrupted variants append `__<kind>`."
+    },
+    "question": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Raw `question`, or the hypothesis if the question is empty."
+    },
+    "choices": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "maxItems": 1,
+      "description": "EntailmentBank: `[answer]` (a single short answer, not a multiple-choice list)."
+    },
+    "choice_labels": {
+      "type": "array",
+      "items": {
+        "const": "A"
+      },
+      "maxItems": 1
+    },
+    "answer_key": {
+      "enum": [
+        "A",
+        null
+      ]
+    },
+    "prompt": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Model input up to 'Reasoning:'; embeds the numbered fact list."
+    },
+    "context": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Newline-joined `N. <sentence>` fact list."
+    },
+    "meta": {
+      "type": "object",
+      "required": [
+        "dataset",
+        "task",
+        "split",
+        "hypothesis",
+        "answer_text",
+        "reasoning",
+        "reasoning_format",
+        "entailment_steps",
+        "proof_raw",
+        "proof_borrowed_from_task1",
+        "depth_of_proof",
+        "length_of_proof",
+        "n_distractors"
+      ],
+      "properties": {
+        "dataset": {
+          "const": "entailmentbank"
+        },
+        "task": {
+          "enum": [
+            1,
+            2,
+            3
+          ]
+        },
+        "split": {
+          "enum": [
+            "train",
+            "dev",
+            "test"
+          ]
+        },
+        "hypothesis": {
+          "type": "string",
+          "minLength": 1
+        },
+        "answer_text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reasoning": {
+          "type": "string",
+          "minLength": 1,
+          "description": "`ReasoningChain.text` in `reasoning_format`."
+        },
+        "reasoning_format": {
+          "enum": [
+            "natural",
+            "structured",
+            "raw"
+          ]
+        },
+        "entailment_steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "reasoning_chain.schema.json#/$defs/StepDict"
+          }
+        },
+        "proof_raw": {
+          "type": "string",
+          "description": "Raw proof string (task-1 numbering for task 3)."
+        },
+        "proof_borrowed_from_task1": {
+          "type": "boolean",
+          "description": "True for every task-3 example."
+        },
+        "depth_of_proof": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "length_of_proof": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "n_distractors": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "0 for task 1 AND task 3 (task 3 does not mark distractors)."
+        },
+        "condition": {
+          "enum": [
+            "valid",
+            "corrupted"
+          ],
+          "description": "Only after PairedCorruption."
+        },
+        "pair_id": {
+          "type": "string",
+          "description": "Only after PairedCorruption."
+        },
+        "corruption": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "reasoning_chain.schema.json#/$defs/Corruption"
+            }
+          ],
+          "description": "Only after PairedCorruption; null for the valid member."
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
