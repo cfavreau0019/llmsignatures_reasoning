@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "entailmentbank-v3/worldtree_corpus.schema.json",
+  "title": "supporting_data/worldtree_corpus_sentences_extended.json",
+  "type": "object",
+  "description": "Single JSON object: WorldTree fact uuid (or `ET_addon:N` for EntailmentBank additions) -> sentence. 11,941 entries; 420 duplicate sentences; `ET_addon:0` is the placeholder 'DUMMY'.",
+  "patternProperties": {
+    "^([0-9a-f]{4}-){3}[0-9a-f]{4}$|^ET_addon:[0-9]+$": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false
+}

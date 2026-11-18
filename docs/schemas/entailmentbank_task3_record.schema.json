@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "entailmentbank-v3/task_3.record.schema.json",
+  "title": "EntailmentBank v3 task_3 record (one JSONL line)",
+  "type": "object",
+  "required": [
+    "id",
+    "context",
+    "question",
+    "answer",
+    "hypothesis",
+    "proof",
+    "meta"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Source-question id. NOT unique: 6 ids occur twice (see docs)."
+    },
+    "context": {
+      "type": "string",
+      "pattern": "^sent[0-9]+: ",
+      "description": "`sent1: <text> sent2: <text> ...` (single string, no newlines)."
+    },
+    "question": {
+      "type": "string",
+      "minLength": 1
+    },
+    "answer": {
+      "type": "string",
+      "minLength": 1
+    },
+    "hypothesis": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Declarative restatement of question+answer; the proof root."
+    },
+    "proof": {
+      "type": "string",
+      "const": "",
+      "description": "Always '' in task 3 (retrieval only)."
+    },
+    "meta": {
+      "type": "object",
+      "required": [
+        "question_text",
+        "answer_text",
+        "triples",
+        "core_concepts",
+        "worldtree_provenance"
+      ],
+      "properties": {
+        "question_text": {
+          "type": "string",
+          "description": "Duplicate of top-level `question`."
+        },
+        "answer_text": {
+          "type": "string",
+          "description": "Duplicate of top-level `answer`."
+        },
+        "triples": {
+          "type": "object",
+          "description": "All 25 retrieved corpus sentences; equals the parsed `context`. Not all gold leaves are present.",
+          "patternProperties": {
+            "^sent[0-9]+$": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "core_concepts": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Annotator-marked key statements. Empty for 3 records."
+        },
+        "worldtree_provenance": {
+          "type": "array",
+          "description": "ARRAY (not an object as in tasks 1/2): one entry per context sentence.",
+          "items": {
+            "type": "object",
+            "required": [
+              "sid",
+              "uuid",
+              "relevance_score"
+            ],
+            "properties": {
+              "sid": {
+                "type": "string",
+                "pattern": "^sent[0-9]+$"
+              },
+              "uuid": {
+                "type": "string"
+              },
+              "relevance_score": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "x-cross-field-invariants": [
+    "parse_context(context) == meta.triples (25 entries)",
+    "row i has the same id/question/hypothesis as task-1 and task-2 row i",
+    "gold leaves are only partly present in the context (mean coverage 0.77 after normalisation)",
+    "len(meta.worldtree_provenance) == len(meta.triples)"
+  ]
+}

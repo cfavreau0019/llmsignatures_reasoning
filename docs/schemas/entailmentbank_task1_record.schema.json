@@ -1,0 +1,236 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "entailmentbank-v3/task_1.record.schema.json",
+  "title": "EntailmentBank v3 task_1 record (one JSONL line)",
+  "type": "object",
+  "required": [
+    "id",
+    "context",
+    "question",
+    "answer",
+    "hypothesis",
+    "proof",
+    "meta",
+    "full_text_proof",
+    "depth_of_proof",
+    "length_of_proof"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Source-question id. NOT unique: 6 ids occur twice (see docs)."
+    },
+    "context": {
+      "type": "string",
+      "pattern": "^sent[0-9]+: ",
+      "description": "`sent1: <text> sent2: <text> ...` (single string, no newlines)."
+    },
+    "question": {
+      "type": "string",
+      "minLength": 1
+    },
+    "answer": {
+      "type": "string",
+      "minLength": 1
+    },
+    "hypothesis": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Declarative restatement of question+answer; the proof root."
+    },
+    "proof": {
+      "type": "string",
+      "pattern": "^( *(sent|int)[0-9]+( & (sent|int)[0-9]+)* -> (int[0-9]+: [^;]+|hypothesis);)+ *$",
+      "description": "Steps separated by ';'. Intermediate conclusions carry inline text; the final step ends in the literal `hypothesis`."
+    },
+    "meta": {
+      "type": "object",
+      "required": [
+        "question_text",
+        "answer_text",
+        "triples",
+        "core_concepts",
+        "worldtree_provenance",
+        "hypothesis_id",
+        "intermediate_conclusions",
+        "distractors",
+        "distractors_relevance",
+        "step_proof",
+        "lisp_proof",
+        "polish_proof",
+        "add_list",
+        "delete_list"
+      ],
+      "properties": {
+        "question_text": {
+          "type": "string",
+          "description": "Duplicate of top-level `question`."
+        },
+        "answer_text": {
+          "type": "string",
+          "description": "Duplicate of top-level `answer`."
+        },
+        "triples": {
+          "type": "object",
+          "description": "Gold leaf sentences only (sent1..sentN); equals the parsed `context`.",
+          "patternProperties": {
+            "^sent[0-9]+$": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "core_concepts": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Annotator-marked key statements. Empty for 3 records."
+        },
+        "worldtree_provenance": {
+          "type": "object",
+          "description": "Gold leaves only (even in task 2). `uuid` is '' for annotator-added facts (== the `add_list` entries).",
+          "patternProperties": {
+            "^sent[0-9]+$": {
+              "type": "object",
+              "required": [
+                "uuid",
+                "original_text"
+              ],
+              "properties": {
+                "uuid": {
+                  "type": "string"
+                },
+                "original_text": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "hypothesis_id": {
+          "type": "string",
+          "pattern": "^int[0-9]+$",
+          "description": "Id of the root, always `int{length_of_proof}`."
+        },
+        "intermediate_conclusions": {
+          "type": "object",
+          "description": "One entry per proof step (including the root `hypothesis_id`).",
+          "patternProperties": {
+            "^int[0-9]+$": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "distractors": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^sent[0-9]+$"
+          },
+          "maxItems": 0,
+          "description": "Always empty in task 1."
+        },
+        "distractors_relevance": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 0,
+          "description": "Retrieval score per distractor, parallel to `distractors`."
+        },
+        "step_proof": {
+          "type": "string",
+          "description": "Identical to top-level `proof`."
+        },
+        "lisp_proof": {
+          "type": "string",
+          "description": "S-expression encoding; the root is `intN`, not `hypothesis`."
+        },
+        "polish_proof": {
+          "type": "string",
+          "description": "Prefix-notation encoding."
+        },
+        "add_list": {
+          "type": "array",
+          "description": "Facts the annotators wrote (not in WorldTree).",
+          "items": {
+            "type": "object",
+            "required": [
+              "sid",
+              "fact"
+            ],
+            "properties": {
+              "sid": {
+                "type": "string",
+                "pattern": "^sent[0-9]+$"
+              },
+              "fact": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "delete_list": {
+          "type": "array",
+          "description": "WorldTree facts shown to annotators but unused.",
+          "items": {
+            "type": "object",
+            "required": [
+              "uuid",
+              "fact"
+            ],
+            "properties": {
+              "uuid": {
+                "type": "string",
+                "minLength": 1
+              },
+              "fact": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "full_text_proof": {
+      "type": "string",
+      "description": "Proof with every sentN replaced by its text; ` [BECAUSE] a [AND] b [INFER] intN: t ...`. Final step ends in `intN`, not `hypothesis`."
+    },
+    "depth_of_proof": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Annotator-reported depth. Disagrees with the depth recomputed from `proof` for 46/1840 records."
+    },
+    "length_of_proof": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Number of steps; always equals the number of ';'-separated steps."
+    }
+  },
+  "additionalProperties": false,
+  "x-cross-field-invariants": [
+    "parse_context(context) == meta.triples",
+    "proof == meta.step_proof",
+    "meta.hypothesis_id == 'int' + str(length_of_proof)",
+    "meta.intermediate_conclusions[meta.hypothesis_id] == hypothesis",
+    "len(meta.intermediate_conclusions) == length_of_proof",
+    "every inline `intN: text` in proof == meta.intermediate_conclusions[intN]",
+    "meta.worldtree_provenance.keys() == meta.triples.keys()",
+    "every meta.add_list[].sid in meta.triples",
+    "every sentN in proof in meta.triples; every key of meta.triples used in proof"
+  ]
+}
