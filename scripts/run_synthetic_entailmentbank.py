@@ -15,9 +15,14 @@ Then export to EntailmentBank task files:
     .venv/Scripts/python scripts/export_synthetic_entailmentbank.py \
         --input <dataset path printed by `create`> --out data/synthetic/entailmentbank_synth_v1
 
-``preview`` and ``create`` make billed calls with the OPENAI_API_KEY from your ``.env``. In the
-10-record preview each record cost roughly 4,400 tokens across the two models, and about 30 % of
-records fail the default judge filter (>= 4 on every score), so request ~1.4x what you want to keep.
+``preview`` and ``create`` make billed calls with the OPENAI_API_KEY from your ``.env``. Two 10-record
+previews cost about 4,400 and 4,900 tokens per record across the two models. The share of records that
+clear the default judge filter (>= 4 on every score; step_validity is the binding one) was 70 % in one
+preview and 20 % in the other, so plan on roughly 2x what you want to keep and re-measure on a larger
+preview before a big ``create``.
+
+OpenAI sometimes answers ``500 server_error`` and succeeds on the identical retry; Data Designer only
+retries 502/503/504, so the driver widens that to include 500 (``--no-retry-500`` turns it off).
 """
 from __future__ import annotations
 
@@ -35,8 +40,40 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(HERE))
 
-TOKENS_PER_RECORD = 4_400            # measured in the 10-record preview (both models, incl. reasoning tokens)
+TOKENS_PER_RECORD = 4_700            # mean of two 10-record previews (both models, incl. reasoning tokens)
 CALLS_PER_RECORD = 2                 # one tree + one judge call (invalid rows skip the judge)
+
+
+def retry_server_errors(max_retries: int = 5) -> bool:
+    """Make Data Designer's HTTP layer retry HTTP 500 as well as 502/503/504.
+
+    OpenAI intermittently answers a request with ``500 server_error`` and succeeds on the identical retry
+    (seen with gpt-6-luna). Data Designer only retries 502/503/504 and offers no public setting for it,
+    so one 500 fails a health check or drops a generated row. Its model factory looks ``RetryConfig`` up
+    on every call, so substituting a subclass with a wider policy is enough. Uses a private module, so
+    it is guarded: if Data Designer's internals change it warns and carries on with the defaults.
+    """
+    try:
+        from dataclasses import dataclass
+
+        from data_designer.engine.models.clients import retry as dd_retry
+
+        base = dd_retry.RetryConfig
+        if 500 in base().retryable_status_codes:
+            return True
+        retries = max_retries                              # a class body cannot read an enclosing name it also assigns
+
+        @dataclass(frozen=True)
+        class RetryConfigWith500(base):                    # type: ignore[misc, valid-type]
+            max_retries: int = retries
+            retryable_status_codes: frozenset = frozenset({500, 502, 503, 504})
+
+        dd_retry.RetryConfig = RetryConfigWith500
+        return True
+    except Exception as exc:  # noqa: BLE001
+        print(f"warning: could not enable HTTP 500 retries ({type(exc).__name__}: {exc}); using Data Designer defaults",
+              file=sys.stderr)
+        return False
 
 
 def load():
@@ -67,7 +104,7 @@ def cmd_validate(a, G, DataDesigner) -> int:
 
 
 def cmd_check_models(a, G, DataDesigner) -> int:
-    DataDesigner().check_models(G.load_config_builder())
+    DataDesigner().check_models(G.load_config_builder(), max_attempts=3, retry_backoff_seconds=5)
     print("all models responded")
     return 0
 
@@ -130,8 +167,12 @@ def main() -> int:
     c.add_argument("-y", "--yes", action="store_true", help="skip the confirmation prompt")
     c.set_defaults(fn=cmd_create)
 
+    ap.add_argument("--no-retry-500", action="store_true",
+                    help="do not add HTTP 500 to the status codes Data Designer retries")
     a = ap.parse_args()
     G, DataDesigner = load()
+    if not a.no_retry_500:
+        retry_server_errors()
     return a.fn(a, G, DataDesigner)
 
 
