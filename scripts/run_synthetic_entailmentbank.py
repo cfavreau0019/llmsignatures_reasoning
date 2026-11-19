@@ -21,6 +21,9 @@ clear the default judge filter (>= 4 on every score; step_validity is the bindin
 preview and 20 % in the other, so plan on roughly 2x what you want to keep and re-measure on a larger
 preview before a big ``create``.
 
+``--max-restarts N`` (before the subcommand) sets how many times a call whose output cannot be parsed
+is re-run before the row is dropped; it is unrelated to judge scores.
+
 OpenAI sometimes answers ``500 server_error`` and succeeds on the identical retry; Data Designer only
 retries 502/503/504, so the driver widens that to include 500 (``--no-retry-500`` turns it off).
 """
@@ -76,6 +79,16 @@ def retry_server_errors(max_retries: int = 5) -> bool:
         return False
 
 
+def new_designer(a, DataDesigner, **kwargs):
+    """Build a DataDesigner and apply ``--max-restarts`` (if given) through its RunConfig."""
+    dd = DataDesigner(**kwargs)
+    if a.max_restarts is not None:
+        from data_designer.config.run_config import RunConfig
+
+        dd.set_run_config(RunConfig(max_conversation_restarts=a.max_restarts))
+    return dd
+
+
 def load():
     try:
         import synthetic_entailmentbank as G
@@ -98,19 +111,19 @@ def summarize(df) -> None:
 
 def cmd_validate(a, G, DataDesigner) -> int:
     builder = G.load_config_builder()
-    DataDesigner().validate(builder)
+    new_designer(a, DataDesigner).validate(builder)
     print("configuration is valid (offline check; no API calls made)")
     return 0
 
 
 def cmd_check_models(a, G, DataDesigner) -> int:
-    DataDesigner().check_models(G.load_config_builder(), max_attempts=3, retry_backoff_seconds=5)
+    new_designer(a, DataDesigner).check_models(G.load_config_builder(), max_attempts=3, retry_backoff_seconds=5)
     print("all models responded")
     return 0
 
 
 def cmd_preview(a, G, DataDesigner) -> int:
-    res = DataDesigner().preview(G.load_config_builder(), num_records=a.num_records)
+    res = new_designer(a, DataDesigner).preview(G.load_config_builder(), num_records=a.num_records)
     df = res.dataset
     out = Path(a.out) if a.out else ROOT / "artifacts" / f"synthetic_entailmentbank_preview_{a.num_records}.parquet"
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -139,7 +152,7 @@ def cmd_create(a, G, DataDesigner) -> int:
         if not ok:
             print("aborted (no API calls were made)")
             return 1
-    res = DataDesigner(artifact_path=a.artifact_path).create(
+    res = new_designer(a, DataDesigner, artifact_path=a.artifact_path).create(
         builder, num_records=a.num_records, dataset_name=a.dataset_name, resume=ResumeMode(a.resume))
     print(f"\nwrote {res.actual_num_records} records{' (PARTIAL)' if res.is_partial else ''} -> {res.dataset_path}")
     print(f"next: python scripts/export_synthetic_entailmentbank.py --input {res.dataset_path} "
@@ -167,10 +180,16 @@ def main() -> int:
     c.add_argument("-y", "--yes", action="store_true", help="skip the confirmation prompt")
     c.set_defaults(fn=cmd_create)
 
+    ap.add_argument("--max-restarts", type=int, default=None, metavar="N",
+                    help="how many times Data Designer may re-run an LLM call whose output fails to parse into "
+                         "the expected structure before the row is dropped (its default is 5; 0 = never retry). "
+                         "Each restart is a full extra billed call; it does not react to low judge scores")
     ap.add_argument("--no-retry-500", action="store_true",
                     help="do not add HTTP 500 to the status codes Data Designer retries")
     a = ap.parse_args()
     G, DataDesigner = load()
+    if a.max_restarts is not None and a.max_restarts < 0:
+        ap.error("--max-restarts must be >= 0")
     if not a.no_retry_500:
         retry_server_errors()
     return a.fn(a, G, DataDesigner)
