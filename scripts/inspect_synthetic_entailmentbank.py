@@ -15,6 +15,9 @@ No API calls, nothing is modified.
 ``flat``     one row per record with plain columns (no nested values): ids, status, the four scores and the
              judge's reasoning for each, question, answer, hypothesis, proof text. ``.csv`` or ``.parquet``.
 
+``dump``     the raw rows, every column unchanged (nested values intact), as an indented ``.json`` array or
+             ``.jsonl``, to read in an editor.
+
 A row's **status** is ``structure`` (the rebuilt record failed a structural check), ``no-judge`` (no usable
 scores), ``judge`` (lowest score below ``--min-judge-score``, default 4, the exporter's default), or ``pass``.
 """
@@ -210,6 +213,23 @@ def cmd_flat(a) -> int:
 
 
 # --------------------------------------------------------------------------- #
+# dump
+# --------------------------------------------------------------------------- #
+def cmd_dump(a) -> int:
+    import json
+
+    rows = [to_py(r) for r in load_rows(Path(a.path))]
+    out = Path(a.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    if out.suffix.lower() == ".jsonl":                     # one compact record per line
+        out.write_text("".join(json.dumps(r, ensure_ascii=False, default=str) + "\n" for r in rows), encoding="utf-8")
+    else:                                                  # one indented JSON array: fold/unfold it in an editor
+        out.write_text(json.dumps(rows, ensure_ascii=False, indent=2, default=str) + "\n", encoding="utf-8")
+    print(f"wrote {len(rows)} rows, every column, nested values intact -> {out}")
+    return 0
+
+
+# --------------------------------------------------------------------------- #
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -243,6 +263,11 @@ def main() -> int:
     common(f)
     f.add_argument("out", help="output path ending in .csv or .parquet")
     f.set_defaults(fn=cmd_flat)
+
+    d = sub.add_parser("dump", help="write the raw rows, all columns unchanged, as .json (indented) or .jsonl")
+    d.add_argument("path", help="preview .parquet/.jsonl, or a `create` dataset directory")
+    d.add_argument("out", help="output path ending in .json (indented array) or .jsonl (one row per line)")
+    d.set_defaults(fn=cmd_dump)
 
     a = ap.parse_args()
     return a.fn(a)

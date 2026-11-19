@@ -138,6 +138,9 @@ Data Designer also **aborts early** when more than 50 % of tasks error over a wi
   parquet plugin failed on them with `NotSerializableException: com.google.gson.JsonArray`) or for Excel.
   Output is `.csv` (UTF-8 with BOM) or `.parquet`.
 
+* `dump <path> out.json` — the raw rows with **every** column and the nested values intact, as an indented JSON
+  array (or one row per line with `out.jsonl`). Open it in an editor and fold or unfold the sections.
+
 Rows that Data Designer dropped after exhausting retries are not in the file, so the parquet cannot count
 them; compare the row count with what you requested (`--requested`) and check the run log.
 
