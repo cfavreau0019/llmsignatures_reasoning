@@ -10,6 +10,11 @@ the Python API they wrap works, so this driver calls the API directly (same conf
         --dataset-name entailmentbank_synth_v1                                       # paid, asks first
     .venv/Scripts/python scripts/run_synthetic_entailmentbank.py check-models        # tiny calls
 
+``preview`` keeps everything in memory, so stopping it loses the rows. ``create`` checkpoints every
+``--buffer-size`` records (default 100) to ``artifacts/<dataset-name>/``; stopping it loses only the
+unfinished batch, and ``create ... --resume always`` (same ``--buffer-size``) continues from the last
+saved one.
+
 Then export to EntailmentBank task files:
 
     .venv/Scripts/python scripts/export_synthetic_entailmentbank.py \
@@ -23,6 +28,9 @@ preview before a big ``create``.
 
 ``--max-restarts N`` (before the subcommand) sets how many times a call whose output cannot be parsed
 is re-run before the row is dropped; it is unrelated to judge scores.
+
+An empty OpenAI balance (HTTP 429 "no credits remaining") would otherwise be retried forever as a
+rate limit; the driver reclassifies it as a quota error so the run fails fast with a clear message.
 
 OpenAI sometimes answers ``500 server_error`` and succeeds on the identical retry; Data Designer only
 retries 502/503/504, so the driver widens that to include 500 (``--no-retry-500`` turns it off).
@@ -79,13 +87,50 @@ def retry_server_errors(max_retries: int = 5) -> bool:
         return False
 
 
+_NO_CREDIT_PHRASES = ("no credits remaining", "credit_balance_exhausted", "add credits", "billing hard limit")
+
+
+def fail_fast_on_no_credits() -> bool:
+    """Make an out-of-credits 429 abort the run instead of being retried forever.
+
+    OpenAI answers an empty balance with HTTP 429 ``"You have no credits remaining..."``. Data Designer
+    recognises quota errors by phrase ("insufficient credits", "insufficient_quota", ...) but looks only at
+    the error *message*, which for this wording matches none of them, so the 429 is classed as an ordinary
+    rate limit and retried without end (an earlier preview spun for 30+ minutes on ~1,100 of them).
+    Adding the phrases makes it a ``ModelQuotaExceededError``: the rows fail and the run stops with a
+    clear message. Private module, so guarded like ``retry_server_errors``.
+    """
+    try:
+        from data_designer.engine.models.clients import errors as dd_errors
+
+        original = dd_errors._looks_like_quota_exceeded_error
+        if getattr(original, "_eb_patched", False):
+            return True
+
+        def patched(text: str) -> bool:
+            return original(text) or any(t in text for t in _NO_CREDIT_PHRASES)
+
+        patched._eb_patched = True                         # type: ignore[attr-defined]
+        dd_errors._looks_like_quota_exceeded_error = patched
+        return True
+    except Exception as exc:  # noqa: BLE001
+        print(f"warning: could not enable fail-fast on empty credits ({type(exc).__name__}: {exc}); "
+              f"an empty balance will be retried indefinitely", file=sys.stderr)
+        return False
+
+
 def new_designer(a, DataDesigner, **kwargs):
-    """Build a DataDesigner and apply ``--max-restarts`` (if given) through its RunConfig."""
+    """Build a DataDesigner and apply ``--max-restarts`` / ``--buffer-size`` (if given) via its RunConfig."""
     dd = DataDesigner(**kwargs)
+    settings = {}
     if a.max_restarts is not None:
+        settings["max_conversation_restarts"] = a.max_restarts
+    if getattr(a, "buffer_size", None) is not None:
+        settings["buffer_size"] = a.buffer_size
+    if settings:
         from data_designer.config.run_config import RunConfig
 
-        dd.set_run_config(RunConfig(max_conversation_restarts=a.max_restarts))
+        dd.set_run_config(RunConfig(**settings))
     return dd
 
 
@@ -141,8 +186,11 @@ def cmd_create(a, G, DataDesigner) -> int:
     gen = [mc for mc in builder.model_configs if mc.alias == G.GEN_ALIAS][0].model
     judge = [mc for mc in builder.model_configs if mc.alias == G.JUDGE_ALIAS][0].model
     est = a.num_records * TOKENS_PER_RECORD
+    n_groups = -(-a.num_records // a.buffer_size)
     print(f"about to generate {a.num_records} records with '{gen}' (trees) and '{judge}' (judge)\n"
           f"  ~{a.num_records * CALLS_PER_RECORD:,} API calls, ~{est / 1e6:.1f}M tokens (estimate from a 10-record preview)\n"
+          f"  checkpoint every {a.buffer_size} records ({n_groups} batch{'es' if n_groups != 1 else ''}); an "
+          f"interrupted run loses at most the unfinished batch, `--resume always` continues from the last saved one\n"
           f"  artifacts -> {Path(a.artifact_path).resolve()} / {a.dataset_name}")
     if not a.yes:
         try:
@@ -177,6 +225,9 @@ def main() -> int:
     c.add_argument("--artifact-path", default=str(ROOT / "artifacts"))
     c.add_argument("--resume", default="never", choices=["never", "always", "if_possible"],
                    help="continue an interrupted run of the same dataset name")
+    c.add_argument("--buffer-size", type=int, default=100, metavar="N",
+                   help="records per checkpointed batch (Data Designer's own default is 1000, which saves nothing "
+                        "until 1000 records finish). Must be the same when you --resume. Default 100")
     c.add_argument("-y", "--yes", action="store_true", help="skip the confirmation prompt")
     c.set_defaults(fn=cmd_create)
 
@@ -190,6 +241,9 @@ def main() -> int:
     G, DataDesigner = load()
     if a.max_restarts is not None and a.max_restarts < 0:
         ap.error("--max-restarts must be >= 0")
+    if getattr(a, "buffer_size", 1) < 1:
+        ap.error("--buffer-size must be >= 1")
+    fail_fast_on_no_credits()
     if not a.no_retry_500:
         retry_server_errors()
     return a.fn(a, G, DataDesigner)
