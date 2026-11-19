@@ -115,7 +115,33 @@ early shutdown), finished batches are kept and the unfinished one is discarded.
 
 Data Designer also **aborts early** when more than 50 % of tasks error over a window of 10. Saved batches survive that.
 
-## 4. Exporting
+## 4. Inspecting results
+
+[`scripts/inspect_synthetic_entailmentbank.py`](../scripts/inspect_synthetic_entailmentbank.py) reads a preview
+`.parquet` / `.jsonl` or a `create` dataset directory. No API calls; nothing is modified. A row's **status** is
+`pass`, `judge` (lowest score below `--min-judge-score`, default 4), `no-judge` (no usable scores) or
+`structure` (the record failed a structural check).
+
+```bash
+.venv/Scripts/python scripts/inspect_synthetic_entailmentbank.py summary <path> --requested 1400
+.venv/Scripts/python scripts/inspect_synthetic_entailmentbank.py show <path> --failed --below 4 --score step_validity -n 3
+.venv/Scripts/python scripts/inspect_synthetic_entailmentbank.py flat <path> results.csv
+```
+
+* `summary` — status counts, structure errors, score distribution and means, which scores fail in the judge-failed
+  rows, and pass rate by `n_steps`, domain and question style. `--requested N` reports how many rows are missing.
+* `show` — each record as readable text with the judge's reasoning per score. Filters: `--failed`, `--passed`,
+  `--id` (id substring or row number), `--domain`, `--n-steps`, `--below N` (add `--score NAME` to test one score),
+  `--sample --seed S` for random rows, `-n`, `--offset`, `--full` (no truncation).
+* `flat` — one row per record with only plain columns (ids, status, scores, reasoning, question, answer,
+  hypothesis, proof text). Use this for tools that cannot read the nested columns of the raw parquet (a PyCharm
+  parquet plugin failed on them with `NotSerializableException: com.google.gson.JsonArray`) or for Excel.
+  Output is `.csv` (UTF-8 with BOM) or `.parquet`.
+
+Rows that Data Designer dropped after exhausting retries are not in the file, so the parquet cannot count
+them; compare the row count with what you requested (`--requested`) and check the run log.
+
+## 5. Exporting
 
 ```bash
 .venv/Scripts/python scripts/export_synthetic_entailmentbank.py \
@@ -186,7 +212,7 @@ With `--rejects`, each dropped row becomes one JSON line:
 `--keep-all` together with `--rejects` only captures structure failures and duplicates (nothing is rejected on
 judge scores). For failure analysis, use the default threshold and `--rejects`.
 
-## 5. Retries and failures at a glance
+## 6. Retries and failures at a glance
 
 | What fails | What happens |
 |---|---|
