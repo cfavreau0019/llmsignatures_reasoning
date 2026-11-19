@@ -75,8 +75,12 @@ def load_rows(path: Path) -> list[dict]:
 
     path = Path(path)
     if path.is_dir():
-        files = sorted(p for p in path.rglob("*.parquet"))
-        files = [f for f in files if "processor" not in f.as_posix()] or files
+        final = path / "parquet-files"                     # a `create` run: only the finished batches. Its siblings
+        if final.is_dir():                                 # (tmp-partial-..., dropped-columns-..., processors) hold
+            files = sorted(final.glob("*.parquet"))        # interrupted or side data and would duplicate rows
+        else:
+            files = sorted(p for p in path.rglob("*.parquet") if "processor" not in p.as_posix())
+        files = files or sorted(path.rglob("*.parquet"))
         jsonl = sorted(path.rglob("*.jsonl"))
         if not files and jsonl:
             return [json.loads(l) for f in jsonl for l in f.read_text(encoding="utf-8").splitlines() if l.strip()]
