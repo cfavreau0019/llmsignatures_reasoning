@@ -11,7 +11,9 @@ What it does
    round-trips), then re-checks every structural invariant.
 2. Filters: structurally valid, every judge score >= ``--min-judge-score`` (default 4),
    no duplicate question/hypothesis. Nothing is thrown away silently -- reasons are counted in
-   ``manifest.json``. Use ``--keep-all`` to skip the judge filter.
+   ``manifest.json``. Use ``--keep-all`` to skip the judge filter, and ``--rejects [PATH]`` to also
+   write every dropped row (reason, judge scores and rationales, the rebuilt record, the raw LLM
+   tree) to a JSONL file for failure analysis.
 3. Builds the other tasks, which need cross-record context:
    * task_2: gold leaves + distractors drawn from *other* synthetic records (60 % same domain),
      always 25 sentences, leaf ids renumbered, proof re-encoded.
@@ -293,6 +295,23 @@ def find_real_dir(explicit: str | None) -> Path | None:
     return None
 
 
+def reject_row(row: dict, reason: str, rec: dict | None, errs: list | None) -> dict:
+    """One line of the rejects file: why the row was dropped plus everything needed to inspect it."""
+    return {
+        "reason": reason,
+        "record_uuid": row.get("record_uuid"),
+        "id": rec["id"] if rec else None,
+        "domain": row.get("domain"), "topic": row.get("topic"),
+        "question_style": row.get("question_style"), "n_steps": row.get("n_steps"),
+        "judge_scores": judge_scores(row),
+        "judge_raw": G._as_obj(row.get("judge")),             # includes the judge's reasoning text
+        "structure_errors": errs if errs is not None else to_py(row.get("structure_errors")),
+        "record": rec,                                         # rebuilt task_1 record (None if it could not be built)
+        "tree": G._as_obj(row.get("tree")),                    # the LLM's raw sentences
+        "skeleton_text": row.get("skeleton_text"),
+    }
+
+
 def summarize(xs) -> dict:
     xs = sorted(xs)
     if not xs:
@@ -316,6 +335,9 @@ def main() -> None:
                     help="drop records whose question or hypothesis text exists in the real data")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--limit", type=int, default=None)
+    ap.add_argument("--rejects", nargs="?", const="", default=None, metavar="PATH",
+                    help="write every dropped row (reason, judge scores + rationales, rebuilt record, raw tree) "
+                         "to this JSONL file; with no PATH uses <out>/rejects.jsonl")
     ap.add_argument("--no-schema", action="store_true", help="skip JSON Schema validation")
     a = ap.parse_args()
     fr = tuple(float(x) for x in a.split_fractions.split(","))
@@ -330,24 +352,31 @@ def main() -> None:
     seen_q: set[str] = set(); seen_h: set[str] = set(); seen_id: set[str] = set()
     real_leaves, real_hyps, real_qs = real_sets(find_real_dir(a.real_data))
 
+    rejects: list[dict] = []
+    rows_by_id: dict[str, dict] = {}                           # kept record id -> its Data Designer row
+
+    def reject(row: dict, reason: str, rec: dict | None = None, errs: list | None = None) -> None:
+        drops[reason] += 1
+        rejects.append(reject_row(row, reason, rec, errs))
+
     for row in rows:
         rec, _, errs = G.build_record(row.get("record_uuid"), row.get("domain", ""), row.get("skeleton"), row.get("tree"))
         if errs:
-            drops["structure/consistency"] += 1
+            reject(row, "structure/consistency", None, errs)
             continue
         js = judge_scores(row)
         if not a.keep_all:
             if any(v is None for v in js.values()):
-                drops["no judge scores"] += 1
+                reject(row, "no judge scores", rec)
                 continue
             if min(js.values()) < a.min_judge_score:
-                drops[f"judge < {a.min_judge_score}"] += 1
+                reject(row, f"judge < {a.min_judge_score}", rec)
                 continue
         if rec["id"] in seen_id or rec["question"] in seen_q or rec["hypothesis"] in seen_h:
-            drops["duplicate id/question/hypothesis"] += 1
+            reject(row, "duplicate id/question/hypothesis", rec)
             continue
         if a.drop_real_overlap and (rec["question"] in real_qs or rec["hypothesis"] in real_hyps):
-            drops["question/hypothesis exists in real data"] += 1
+            reject(row, "question/hypothesis exists in real data", rec)
             continue
         seen_id.add(rec["id"]); seen_q.add(rec["question"]); seen_h.add(rec["hypothesis"])
         leaves = list(rec["meta"]["triples"].values())
@@ -357,6 +386,7 @@ def main() -> None:
             "real_leaf_overlap": round(sum(t in real_leaves for t in leaves) / len(leaves), 3) if real_leaves else None,
         }
         kept.append(rec)
+        rows_by_id[rec["id"]] = row
 
     print(f"read {len(rows)} rows -> kept {len(kept)}; dropped {dict(drops)}")
     if not kept:
@@ -378,6 +408,7 @@ def main() -> None:
         t3 = to_task3(rec, pool, domains[rid], rng, a.task3_dup_prob)
         if t2 is None or t3 is None:                          # pool too small for 25 distinct sentences
             t2_skipped += t2 is None; t3_skipped += t3 is None
+            reject(rows_by_id.get(rid, {"record_uuid": rid}), "pool too small for 25-sentence context", rec)
             continue
         t3_rec, cov = t3
         coverage.append(cov)
@@ -410,13 +441,22 @@ def main() -> None:
         "".join(json.dumps(r, ensure_ascii=False) + "\n" for sp in SPLITS for r in files.get((3, sp), [])),
         encoding="utf-8")
 
+    rejects_path = None
+    if a.rejects is not None:
+        rejects_path = Path(a.rejects) if a.rejects else out / "rejects.jsonl"
+        rejects_path.parent.mkdir(parents=True, exist_ok=True)
+        rejects_path.write_text("".join(json.dumps(r, ensure_ascii=False, default=str) + "\n" for r in rejects),
+                                encoding="utf-8")
+        print(f"wrote {len(rejects)} rejected rows -> {rejects_path}")
+
     final = [r for sp in SPLITS for r in files.get((1, sp), [])]
     stats = [G.graph_stats(G.parse_steps(r["proof"])[0]) for r in final]
     manifest = {
         "generator": "scripts/synthetic_entailmentbank.py (NVIDIA Data Designer)",
         "args": vars(a),
         "rows_read": len(rows), "kept_after_filters": len(kept), "exported": len(final),
-        "dropped": dict(drops), "task2_skipped_small_pool": t2_skipped, "task3_skipped_small_pool": t3_skipped,
+        "dropped": dict(drops), "rejects_file": str(rejects_path) if rejects_path else None,
+        "task2_skipped_small_pool": t2_skipped, "task3_skipped_small_pool": t3_skipped,
         "split_counts": {sp: len(files.get((1, sp), [])) for sp in SPLITS},
         "proof_graph": {
             "n_steps": dict(sorted(Counter(s["n_steps"] for s in stats).items())),
