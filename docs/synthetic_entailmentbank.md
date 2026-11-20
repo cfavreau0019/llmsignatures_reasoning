@@ -7,7 +7,7 @@ the same [JSON Schemas](schemas/).
 
 | Script | Role |
 |---|---|
-| [`scripts/synthetic_entailmentbank.py`](../scripts/synthetic_entailmentbank.py) | The Data Designer configuration (`load_config_builder()`) plus pure helpers for the proof graph and the proof encodings. Not run directly. |
+| [`scripts/synthetic_entailmentbank.py`](../scripts/synthetic_entailmentbank.py) | The Data Designer configuration (`load_config_builder()`) plus pure helpers for the proof graph, the proof encodings and the revision logic (`draft_text`, `finalize`). Not run directly. |
 | [`scripts/run_synthetic_entailmentbank.py`](../scripts/run_synthetic_entailmentbank.py) | **Driver.** `validate`, `check-models`, `preview`, `create`. Used instead of the `data-designer` CLI (see [Known problems](#known-problems)). |
 | [`scripts/export_synthetic_entailmentbank.py`](../scripts/export_synthetic_entailmentbank.py) | Turns Data Designer output into `task_1/2/3` files, filtering on structure and judge scores. |
 | [`tests/test_synthetic_entailmentbank.py`](../tests/test_synthetic_entailmentbank.py) | Offline tests of the pure helpers (no API calls). |
@@ -24,6 +24,7 @@ Data Designer CLI does not):
 ```
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-...          # writes the proofs
+OPENAI_REVISE_MODEL=gpt-...   # optional: reviews and corrects them (falls back to OPENAI_MODEL)
 OPENAI_JUDGE_MODEL=gpt-...    # scores them (falls back to OPENAI_MODEL)
 ```
 
@@ -39,18 +40,33 @@ see [Out of credits](#out-of-credits-http-429).
 2. A custom column builds the **proof skeleton** — the graph only: leaf ids, intermediate ids, which
    nodes feed which step. Shapes are single-step, linear, or branched (at least one step joining two
    derived nodes); fan-in is mostly 2 premises; about 8 % of skeletons reuse a leaf in two steps.
-3. **One LLM call** writes every sentence for that graph: hypothesis first, then the leaves, then the
-   intermediates.
-4. **Deterministic code** assembles the raw task_1 record (`proof`, `lisp_proof`, `polish_proof`,
-   `full_text_proof`, `meta`) and checks every structural invariant (`structure_valid`).
-5. A **judge model** scores the record 1-5 on `step_validity`, `factual_correctness`,
-   `answer_consistency` and `non_triviality`. Rows that fail the structure check skip the judge.
+3. **First attempt (`tree`):** one LLM call writes every sentence for that graph: hypothesis first, then the
+   leaves, then the intermediates. Deterministic code assembles it (`record_first`, `proof_text_first`,
+   `valid_first`).
+4. **Revision (`revision`):** a second LLM call reviews that attempt step by step (does the conclusion follow,
+   is every premise needed, does the step add something) and returns a corrected tree in the same schema.
+   The skeleton, ids and dependencies are fixed. The schema has two extra fields: `coherent` (the reviser says
+   explicitly when no valid proof exists with this structure, and then returns the draft unchanged) and
+   `revision_notes` (what it changed and why). The prompt is `REVISE_PROMPT` in the generator.
+5. **Final record (`record`):** deterministic code assembles the raw task_1 record from the revision
+   (`proof`, `lisp_proof`, `polish_proof`, `full_text_proof`, `meta`) and checks every structural invariant
+   (`structure_valid`). `revision_status` says what happened (below) and `tree_final` holds the tree used.
+6. A **judge model** scores a proof 1-5 on `step_validity`, `factual_correctness`, `answer_consistency` and
+   `non_triviality`. By default it scores the **second** (revised) proof into the `judge` column. See `--judge`.
+
+`revision_status` is one of: `revised` (the reviser called its proof coherent and it assembles cleanly),
+`incoherent` (it reported that the structure cannot be made coherent; the final tree is the unchanged first
+attempt), `invalid_revision` (the revision does not assemble, for example it changed an id; its errors are
+reported), `no_revision` (no revision value). Only `revised` rows are judged as the second pass and exported
+as the second pass.
 
 The proof graph is guaranteed well-formed; **whether each step is actually entailed is not** — it is only
-judge-scored. `step_validity` is the score that rejects most rows.
+judge-scored. `step_validity` is the score that rejected most first attempts.
 
-Cost: about 2 API calls and roughly 4,400-4,900 tokens per record across both models (measured on two
-10-record previews).
+Cost: 3 API calls per record (tree, revision, judge), or 4 with `--judge both`. The tree + judge part was
+measured at roughly 4,400-4,900 tokens per record on two 10-record previews. **The revision call has not been run
+or measured**; the driver's estimate for it (about 2,300 tokens) is a guess, so check the first preview's real cost.
+Whether the revision actually raises the pass rate is also untested; a preview with `--judge both` measures it.
 
 ## 3. Running it
 
@@ -90,6 +106,7 @@ Global options go **before** the subcommand (`run_synthetic_entailmentbank.py --
 | Option | Applies to | Meaning |
 |---|---|---|
 | `--max-restarts N` | all subcommands | How many times Data Designer may re-run an LLM call whose output **fails to parse** into the expected structure before the row is dropped. Data Designer's default is 5; `0` disables. Each restart is a full extra billed call. It does **not** react to low judge scores. |
+| `--judge {first,second,both}` | all subcommands | What the judge scores: the revised proof (`second`, default, column `judge`), the first attempt (`first`, column `judge_first`), or each (`both`, adds one judge call per record). With `both`, `inspect summary` compares the two passes. |
 | `--no-retry-500` | all subcommands | By default the driver makes Data Designer also retry HTTP **500** (it retries only 502/503/504), up to 5 times. This turns that off. |
 | `-n`, `--num-records` | `preview`, `create` | Number of rows. Required for `create`; `preview` defaults to 10. |
 | `--out PATH` | `preview` | Parquet path for the saved preview. |
@@ -130,7 +147,12 @@ Data Designer also **aborts early** when more than 50 % of tasks error over a wi
 
 * `summary` — status counts, structure errors, score distribution and means, which scores fail in the judge-failed
   rows, and pass rate by `n_steps`, domain and question style. `--requested N` reports how many rows are missing.
-* `show` — each record as readable text with the judge's reasoning per score. Filters: `--failed`, `--passed`,
+  For output with the revision step it also prints the revision statuses and, if the run used `--judge both`, a
+  first-attempt-vs-revised comparison (pass rates, rows fixed or broken by revision, mean scores). A row that could
+  not be revised counts as failing the second pass. `--pass first|second` (default `second`) picks which attempt
+  the main columns describe; rows the reviser did not revise show status `revision:<why>`.
+* `show` — each record as readable text with the judge's reasoning per score. `--compare` also prints the first
+  attempt and its scores above the revised one, and the reviser's notes are always shown. Filters: `--failed`, `--passed`,
   `--id` (id substring or row number), `--domain`, `--n-steps`, `--below N` (add `--score NAME` to test one score),
   `--sample --seed S` for random rows, `-n`, `--offset`, `--full` (no truncation).
 * `flat` — one row per record with only plain columns (ids, status, scores, reasoning, question, answer,
@@ -176,7 +198,8 @@ splits; `EntailmentBank(task=..., split=..., local_dir=<out>)` loads them.
 | `--input PATH` | required | Data Designer output directory, or a `.parquet` / `.jsonl` file. |
 | `--out DIR` | `data/synthetic/entailmentbank_synth_v1` | Output directory. |
 | `--min-judge-score N` | 4 | **Every** judge score must be at least N (1-5), else the row is dropped. |
-| `--keep-all` | off | Skip the judge filter. Structure checks and duplicate removal still apply. |
+| `--pass {second,first}` | `second` | Which attempt to export. `second`: the revised proof (`tree_final`), only rows with `revision_status == revised`, gated on `judge`. `first`: the original attempt (`tree`), gated on `judge_first`. Output from before the revision step has one attempt and ignores this. |
+| `--keep-all` | off | Skip the judge filter and the revision-status filter. Structure checks and duplicate removal still apply. |
 | `--rejects [PATH]` | off | Write every dropped row to a JSONL file; without a PATH, `<out>/rejects.jsonl`. |
 | `--split-fractions` | `0.8,0.1,0.1` | train, dev, test; assigned by a hash of the id, so stable. |
 | `--task3-dup-prob P` | 0.0 | Chance a task_3 context repeats one sentence (87 % of real contexts do). |
@@ -193,7 +216,8 @@ Reasons counted in `manifest.json` under `dropped`:
 | Reason | Cause |
 |---|---|
 | `structure/consistency` | Rebuilt record failed a structural check (missing leaf, empty hypothesis, duplicate sentence, ...). Never exportable, even with `--keep-all`. |
-| `no judge scores` | The judge column is missing or unparseable. |
+| `revision <status>` | `--pass second` and the reviser's status is not `revised` (`incoherent`, `invalid_revision`, `no_revision`). |
+| `no judge scores` | The judge column for the exported pass is missing or unparseable (for example `--pass first` on a run made with `--judge second`). |
 | `judge < N` | Lowest score below `--min-judge-score`. |
 | `duplicate id/question/hypothesis` | Repeats an earlier kept row. |
 | `question/hypothesis exists in real data` | Only with `--drop-real-overlap`. |
@@ -220,7 +244,8 @@ judge scores). For failure analysis, use the default threshold and `--rejects`.
 | What fails | What happens |
 |---|---|
 | HTTP 500 / 502 / 503 / 504 | Retried up to 5 times by the HTTP layer (the driver adds 500). |
-| LLM output that does not parse | Whole call re-run, up to `--max-restarts` (default 5). Row dropped if it still fails. |
+| LLM output that does not parse (tree or revision) | Whole call re-run, up to `--max-restarts` (default 5). Row dropped if it still fails. |
+| Reviser says the proof cannot be made coherent, or returns a broken revision | **Nothing is retried.** `revision_status` records it, the row is not exported as a second pass, and it appears in the rejects file. |
 | Row fails after all retries | Dropped by Data Designer; **it is not in the output at all**. |
 | Judge score below threshold | **Nothing is retried.** The row is kept and filtered at export. |
 | Empty OpenAI balance | Run aborts quickly with a quota error (below). |
@@ -261,3 +286,8 @@ performance" warning with a different message, run `check-models` or one direct 
   classification of the 429 text, `check-models` against an empty balance, `RunConfig` values).
   `--max-restarts` was checked only up to the `RunConfig` value. **None of the four has been run in a billed
   `preview` or `create` yet**, and checkpoint writing and `--resume` have not been exercised.
+* The revision step and `--judge` were checked offline only: the configuration validates for all three judge
+  modes, `finalize` and `draft_text` have unit tests, and the exporter and inspect script were run on output
+  fabricated from a real preview (revised, incoherent, broken and missing revisions). **The reviser has never run
+  against the API**: its real output, token cost, effect on the pass rate and how often it answers
+  `coherent: false` are unknown, as is whether the prompt gets the model to return valid ids.

@@ -11,7 +11,9 @@ What it does
    round-trips), then re-checks every structural invariant.
 2. Filters: structurally valid, every judge score >= ``--min-judge-score`` (default 4),
    no duplicate question/hypothesis. Nothing is thrown away silently -- reasons are counted in
-   ``manifest.json``. Use ``--keep-all`` to skip the judge filter, and ``--rejects [PATH]`` to also
+   ``manifest.json``. With the revision step, ``--pass second`` (default) exports the revised proof
+   (only rows whose ``revision_status`` is ``revised``, gated on ``judge``) and ``--pass first`` the
+   first attempt (gated on ``judge_first``). Use ``--keep-all`` to skip the judge filter, and ``--rejects [PATH]`` to also
    write every dropped row (reason, judge scores and rationales, the rebuilt record, the raw LLM
    tree) to a JSONL file for failure analysis.
 3. Builds the other tasks, which need cross-record context:
@@ -96,8 +98,19 @@ def load_rows(path: Path) -> list[dict]:
     return rows
 
 
-def judge_scores(row: dict) -> dict[str, int | None]:
-    j = G._as_obj(row.get("judge"))
+def pass_columns(row: dict, use_pass: str) -> tuple[str, str, str]:
+    """(tree column, judge column, label) for the pass to export from one Data Designer row.
+
+    Rows from the revision pipeline have ``revision_status``: the *second* pass is ``tree_final`` scored by
+    ``judge``, the *first* is ``tree`` scored by ``judge_first``. Older rows have no revision step and only
+    a first-pass ``tree`` scored by ``judge``."""
+    if "revision_status" not in row:
+        return "tree", "judge", "first"
+    return ("tree", "judge_first", "first") if use_pass == "first" else ("tree_final", "judge", "second")
+
+
+def judge_scores(row: dict, column: str = "judge") -> dict[str, int | None]:
+    j = G._as_obj(row.get(column))
     out = {}
     for name in JUDGE_SCORES:
         v = j.get(name) if isinstance(j, dict) else None
@@ -299,21 +312,28 @@ def find_real_dir(explicit: str | None) -> Path | None:
     return None
 
 
-def reject_row(row: dict, reason: str, rec: dict | None, errs: list | None) -> dict:
+def reject_row(row: dict, reason: str, rec: dict | None, errs: list | None, judge_col: str = "judge") -> dict:
     """One line of the rejects file: why the row was dropped plus everything needed to inspect it."""
-    return {
+    out = {
         "reason": reason,
         "record_uuid": row.get("record_uuid"),
         "id": rec["id"] if rec else None,
         "domain": row.get("domain"), "topic": row.get("topic"),
         "question_style": row.get("question_style"), "n_steps": row.get("n_steps"),
-        "judge_scores": judge_scores(row),
-        "judge_raw": G._as_obj(row.get("judge")),             # includes the judge's reasoning text
+        "judge_column": judge_col,
+        "judge_scores": judge_scores(row, judge_col),
+        "judge_raw": G._as_obj(row.get(judge_col)),           # includes the judge's reasoning text
         "structure_errors": errs if errs is not None else to_py(row.get("structure_errors")),
         "record": rec,                                         # rebuilt task_1 record (None if it could not be built)
-        "tree": G._as_obj(row.get("tree")),                    # the LLM's raw sentences
+        "tree": G._as_obj(row.get("tree")),                    # the LLM's first-attempt sentences
         "skeleton_text": row.get("skeleton_text"),
     }
+    if "revision_status" in row:                               # revision pipeline: keep both passes for comparison
+        out.update(revision_status=row.get("revision_status"), revision_notes=row.get("revision_notes"),
+                   revision=G._as_obj(row.get("revision")), tree_final=G._as_obj(row.get("tree_final")),
+                   proof_text_first=row.get("proof_text_first"), proof_text=row.get("proof_text"),
+                   judge_first_raw=G._as_obj(row.get("judge_first")), judge_second_raw=G._as_obj(row.get("judge")))
+    return out
 
 
 def summarize(xs) -> dict:
@@ -330,7 +350,12 @@ def main() -> None:
     ap.add_argument("--input", required=True, help="Data Designer output dir or .parquet/.jsonl file")
     ap.add_argument("--out", default=str(ROOT / "data/synthetic/entailmentbank_synth_v1"))
     ap.add_argument("--min-judge-score", type=int, default=4, help="every judge score must be >= this (1-5)")
-    ap.add_argument("--keep-all", action="store_true", help="ignore the judge filter (structure checks still apply)")
+    ap.add_argument("--keep-all", action="store_true",
+                    help="ignore the judge filter and the revision-status filter (structure checks still apply)")
+    ap.add_argument("--pass", dest="use_pass", choices=("second", "first"), default="second",
+                    help="which attempt to export: the revised proof (second, default; needs revision_status == "
+                         "revised and uses the `judge` scores) or the first attempt (uses `judge_first`). Output "
+                         "from before the revision step has only a first pass and ignores this")
     ap.add_argument("--split-fractions", default="0.8,0.1,0.1", help="train,dev,test")
     ap.add_argument("--task3-dup-prob", type=float, default=0.0,
                     help="chance a task_3 context repeats one sentence (real: 87%% of contexts do)")
@@ -361,14 +386,21 @@ def main() -> None:
 
     def reject(row: dict, reason: str, rec: dict | None = None, errs: list | None = None) -> None:
         drops[reason] += 1
-        rejects.append(reject_row(row, reason, rec, errs))
+        rejects.append(reject_row(row, reason, rec, errs, pass_columns(row, a.use_pass)[1]))
 
+    status_counts: Counter = Counter()
     for row in rows:
-        rec, _, errs = G.build_record(row.get("record_uuid"), row.get("domain", ""), row.get("skeleton"), row.get("tree"))
+        tree_col, judge_col, which = pass_columns(row, a.use_pass)
+        if "revision_status" in row:
+            status_counts[row["revision_status"]] += 1
+        if which == "second" and row.get("revision_status") != "revised" and not a.keep_all:
+            reject(row, f"revision {row.get('revision_status')}", None, to_py(row.get("structure_errors")) or None)
+            continue
+        rec, _, errs = G.build_record(row.get("record_uuid"), row.get("domain", ""), row.get("skeleton"), row.get(tree_col))
         if errs:
             reject(row, "structure/consistency", None, errs)
             continue
-        js = judge_scores(row)
+        js = judge_scores(row, judge_col)
         if not a.keep_all:
             if any(v is None for v in js.values()):
                 reject(row, "no judge scores", rec)
@@ -459,6 +491,7 @@ def main() -> None:
         "generator": "scripts/synthetic_entailmentbank.py (NVIDIA Data Designer)",
         "args": vars(a),
         "rows_read": len(rows), "kept_after_filters": len(kept), "exported": len(final),
+        "exported_pass": a.use_pass, "revision_status_counts": dict(status_counts),
         "dropped": dict(drops), "rejects_file": str(rejects_path) if rejects_path else None,
         "task2_skipped_small_pool": t2_skipped, "task3_skipped_small_pool": t3_skipped,
         "split_counts": {sp: len(files.get((1, sp), [])) for sp in SPLITS},

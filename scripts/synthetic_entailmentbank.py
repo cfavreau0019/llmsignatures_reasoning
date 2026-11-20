@@ -15,12 +15,19 @@ LLMs are bad at hitting a target tree *shape*, so the shape is sampled, not prom
                      branched, occasional shared leaf) skewed toward 3+ steps, seeded per row.
 2. ``tree``       -- an LLM writes the *sentences* for that exact skeleton (question, answer,
                      hypothesis, leaf facts, intermediate conclusions) as structured output.
-3. ``record`` etc -- a deterministic custom column assembles the raw EntailmentBank task_1
-                     record (``proof``, ``lisp_proof``, ``polish_proof``, ``full_text_proof``,
-                     ``context``, ``meta`` ...), so every encoding agrees by construction, and
-                     checks structural invariants.
-4. ``judge``      -- a second model scores step validity, factual correctness, answer
-                     consistency and non-triviality (1-5). Scores are kept as columns.
+3. ``record_first`` -- a deterministic custom column assembles the first attempt (``record_first``,
+                     ``proof_text_first``, ``valid_first``) so the next call can read it.
+4. ``revision``   -- a second LLM call reviews the first attempt step by step and returns a corrected
+                     tree in the same schema (+ ``coherent`` / ``revision_notes``). The skeleton, ids and
+                     dependencies are fixed; if no valid proof exists with that structure it says so.
+5. ``record`` etc -- the same assembler builds the final raw EntailmentBank task_1 record from the
+                     revision (``proof``, ``lisp_proof``, ``polish_proof``, ``full_text_proof``,
+                     ``context``, ``meta`` ...), so every encoding agrees by construction, and checks
+                     structural invariants. ``revision_status`` says whether the revision was used.
+6. ``judge``      -- a judge model scores step validity, factual correctness, answer consistency and
+                     non-triviality (1-5): the revised proof (``judge``, default), the first attempt
+                     (``judge_first``) or both, chosen by ``load_config_builder(judge=...)``.
+                     Scores are kept as columns.
 
 Task 2 / task 3 variants need cross-row information (distractors drawn from *other* records),
 so they are built afterwards by ``scripts/export_synthetic_entailmentbank.py``, which imports
@@ -40,6 +47,7 @@ still works (on Windows set ``PYTHONUTF8=1`` or it dies printing emoji), and thi
 Environment (loaded from the nearest ``.env``; real env vars win):
     OPENAI_API_KEY       read by Data Designer's built-in ``openai`` provider
     OPENAI_MODEL         model that writes the trees
+    OPENAI_REVISE_MODEL  model that reviews and corrects them (optional; falls back to OPENAI_MODEL)
     OPENAI_JUDGE_MODEL   model that judges them (falls back to OPENAI_MODEL)
 A leading ``openai/`` in a model name is stripped: OpenAI's own API uses bare ids.
 
@@ -502,6 +510,21 @@ class TreeContent(BaseModel):
                                                   "(NOT the hypothesis).")
 
 
+class RevisedTree(TreeContent):
+    """The reviser's answer: the same fields as ``TreeContent`` plus an explicit verdict, so that a proof
+    that cannot be repaired is reported instead of papered over."""
+    coherent: bool = Field(default=True, description=(
+        "true if, after your revisions, every step is a valid, necessary and non-trivial entailment with this "
+        "fixed structure. false if the structure cannot be made logically coherent: then return the draft "
+        "unchanged and explain why in revision_notes. Do not invent unsupported connections."))
+    revision_notes: str = Field(default="", description=(
+        "Briefly: what you changed and why (assumptions removed, premises dropped, claims narrowed ...), or why "
+        "the structure cannot be made coherent."))
+
+
+TREE_KEYS = ("question", "answer", "hypothesis", "leaves", "intermediates")
+
+
 def _rng_for(record_uuid: str) -> random.Random:
     return random.Random(int(hashlib.sha256(str(record_uuid).encode()).hexdigest(), 16))
 
@@ -564,14 +587,78 @@ def build_record(record_uuid, domain: str, skel, tree) -> tuple[dict, str, list[
     return rec, proof_rendered(steps, leaves, inter, hypothesis), check_task1_record(rec)
 
 
+def draft_text(skel, tree) -> str:
+    """Readable proof for the reviser, tolerant of a first attempt with missing ids or an empty hypothesis
+    (``build_record`` refuses those, but they are exactly what a reviser may be able to repair)."""
+    skel, tree = _as_obj(skel), _as_obj(tree)
+    text: dict[str, str] = {}
+    for f in list(tree.get("leaves") or []) + list(tree.get("intermediates") or []):
+        try:
+            text[str(f["id"]).strip()] = clean_sentence(f["text"])
+        except (KeyError, TypeError):
+            continue
+    hyp = clean_sentence(tree.get("hypothesis") or "") or "(MISSING)"
+
+    def show(node: str) -> str:
+        return f"[{node}] {text.get(node, '(MISSING)')}"
+
+    lines = []
+    for n, s in enumerate(skel["steps"], 1):
+        concl = f"[hypothesis] {hyp}" if s["conclusion"] == "hypothesis" else show(s["conclusion"])
+        lines.append(f"step {n}: " + "  AND  ".join(show(p) for p in s["premises"]) + f"\n   => {concl}")
+    return "\n".join(lines)
+
+
+def finalize(record_uuid, domain: str, skel, tree, revision) -> dict:
+    """Combine the first attempt and the reviser's answer into the final record. Pure, so the export script
+    can recompute it from the saved columns.
+
+    ``status``: ``revised`` (the reviser called its proof coherent and it assembles cleanly), ``incoherent``
+    (the reviser said it cannot be made coherent; the final tree is the unchanged first attempt),
+    ``invalid_revision`` (the revision does not assemble, e.g. a changed id; its errors are reported) or
+    ``no_revision`` (no revision column / value)."""
+    tree, rev = _as_obj(tree), _as_obj(revision)
+    first_rec, first_text, first_errs = build_record(record_uuid, domain, skel, tree)
+    coherent = rev.get("coherent") if rev else None
+    if not rev:
+        status, final_tree = "no_revision", tree
+    elif coherent is not None and not bool(coherent):
+        status, final_tree = "incoherent", tree
+    else:
+        status, final_tree = "revised", {k: rev.get(k) for k in TREE_KEYS}
+    rec, text, errs = build_record(record_uuid, domain, skel, final_tree)
+    if status == "revised" and errs:
+        status = "invalid_revision"
+    return {"first_rec": first_rec, "first_text": first_text or draft_text(skel, tree), "first_errs": first_errs,
+            "rec": rec, "text": text, "errs": errs, "status": status,
+            "notes": str(rev.get("revision_notes") or "") if rev else "", "final_tree": final_tree}
+
+
 @_custom(required_columns=["record_uuid", "domain", "skeleton", "tree"],
-         side_effect_columns=["proof_text", "structure_valid", "structure_errors"])
+         side_effect_columns=["proof_text_first", "valid_first", "errors_first"])
+def assemble_first_pass(row: dict) -> dict:
+    """The first attempt on its own (this is what the reviser reads and what ``judge_first`` scores)."""
+    rec, text, errors = build_record(row["record_uuid"], row["domain"], row["skeleton"], row.get("tree"))
+    row["record_first"] = rec
+    row["proof_text_first"] = text or draft_text(row["skeleton"], row.get("tree"))
+    row["valid_first"] = not errors
+    row["errors_first"] = "; ".join(errors)
+    return row
+
+
+@_custom(required_columns=["record_uuid", "domain", "skeleton", "tree", "revision"],
+         side_effect_columns=["proof_text", "structure_valid", "structure_errors",
+                              "revision_status", "revision_notes", "tree_final"])
 def assemble_record(row: dict) -> dict:
-    rec, proof_txt, errors = build_record(row["record_uuid"], row["domain"], row["skeleton"], row.get("tree"))
-    row["record"] = rec
-    row["proof_text"] = proof_txt
-    row["structure_valid"] = not errors
-    row["structure_errors"] = "; ".join(errors)
+    """The final (second-pass) record, built from the revision when there is a usable one."""
+    f = finalize(row["record_uuid"], row["domain"], row["skeleton"], row.get("tree"), row.get("revision"))
+    row["record"] = f["rec"]
+    row["proof_text"] = f["text"]
+    row["structure_valid"] = not f["errs"]
+    row["structure_errors"] = "; ".join(f["errs"])
+    row["revision_status"] = f["status"]
+    row["revision_notes"] = f["notes"]
+    row["tree_final"] = f["final_tree"]
     return row
 
 
@@ -582,7 +669,8 @@ def _model_name(var: str, fallback: str | None = None) -> str:
     return name.removeprefix("openai/")
 
 
-GEN_ALIAS, JUDGE_ALIAS = "eb-synth-gen", "eb-synth-judge"
+GEN_ALIAS, REVISE_ALIAS, JUDGE_ALIAS = "eb-synth-gen", "eb-synth-revise", "eb-synth-judge"
+JUDGE_PASSES = ("first", "second", "both")
 
 GEN_SYSTEM = """You write EntailmentBank-style entailment trees for grade-school science questions.
 An entailment tree derives a hypothesis (the answer to a question, as a statement) from simple
@@ -625,15 +713,52 @@ int2: an earthquake can change earth's surface by shaking the ground
 int3: an earthquake can change earth's surface in a short amount of time
 hypothesis: an earthquake changes earth's surface quickly"""
 
-JUDGE_PROMPT = """You are checking an entailment tree for grade-school science.
+REVISE_PROMPT = """Review the following multi-step entailment proof.
+
+For each inference step, determine whether its conclusion follows from its stated premises, whether all premises are necessary, and whether the step introduces a meaningful new deduction.
+
+Identify unstated assumptions, overgeneralizations, redundant premises, and unsupported comparative claims.
+
+Revise the premises, intermediate conclusions, and hypothesis as necessary to make the entire proof valid and nontrivial.
+
+Preserve the graph topology, all node IDs, and all dependency relationships. Maintain the scientific topic and preferably the original question. You may change the question if necessary to correct an unsupported final conclusion.
+
+Return the complete corrected proof, using the original structured output schema. If the structure cannot be made logically coherent, indicate that explicitly rather than inventing unsupported connections.
+
+---
+The proof to review (each step says its premises, joined by AND, are meant to entail the conclusion):
 
 domain: {{ domain }}
-question: {{ record.question }}
-answer: {{ record.answer }}
-hypothesis: {{ record.hypothesis }}
+topic: {{ topic }}
+question: {{ tree.question }}
+answer: {{ tree.answer }}
+hypothesis: {{ tree.hypothesis }}
+
+{{ proof_text_first }}
+
+The structure is fixed:
+{{ skeleton_text }}
+
+Leaf ids: {{ leaf_ids_text }}
+Intermediate ids: {{ int_ids_text }}
+
+Return every id exactly as written, with the sentence style from the system prompt. A sentence marked (MISSING) must be written. Set `coherent` to false (and return the draft unchanged) only if no valid proof with this structure exists."""
+
+
+def _judge_prompt(rec: str, proof: str) -> str:
+    return f"""You are checking an entailment tree for grade-school science.
+
+domain: {{{{ domain }}}}
+question: {{{{ {rec}.question }}}}
+answer: {{{{ {rec}.answer }}}}
+hypothesis: {{{{ {rec}.hypothesis }}}}
 
 Proof (each step says its premises, taken together, entail the conclusion):
-{{ proof_text }}"""
+{{{{ {proof} }}}}"""
+
+
+JUDGE_PROMPT = _judge_prompt("record", "proof_text")                 # the final (second-pass) proof
+JUDGE_FIRST_PROMPT = _judge_prompt("record_first", "proof_text_first")   # the first attempt, before revision
 
 
 def _scores():
@@ -659,16 +784,20 @@ def _scores():
     ]
 
 
-def load_config_builder() -> "dd.DataDesignerConfigBuilder":
+def load_config_builder(judge: str = "second") -> "dd.DataDesignerConfigBuilder":
+    """``judge`` picks what the judge model scores: ``second`` (default) the revised proof, ``first`` the
+    first attempt, ``both`` each (columns ``judge`` = second pass, ``judge_first`` = first pass)."""
+    if judge not in JUDGE_PASSES:
+        raise ValueError(f"judge must be one of {JUDGE_PASSES}, got {judge!r}")
     load_dotenv_nearby()
     gen_model = _model_name("OPENAI_MODEL")
+    revise_model = _model_name("OPENAI_REVISE_MODEL", fallback="OPENAI_MODEL")
     judge_model = _model_name("OPENAI_JUDGE_MODEL", fallback="OPENAI_MODEL")
 
     model_configs = [
-        dd.ModelConfig(alias=GEN_ALIAS, model=gen_model, provider="openai",
-                       inference_parameters=dd.ChatCompletionInferenceParams(max_parallel_requests=8)),
-        dd.ModelConfig(alias=JUDGE_ALIAS, model=judge_model, provider="openai",
-                       inference_parameters=dd.ChatCompletionInferenceParams(max_parallel_requests=8)),
+        dd.ModelConfig(alias=alias, model=model, provider="openai",
+                       inference_parameters=dd.ChatCompletionInferenceParams(max_parallel_requests=8))
+        for alias, model in ((GEN_ALIAS, gen_model), (REVISE_ALIAS, revise_model), (JUDGE_ALIAS, judge_model))
     ]
     b = dd.DataDesignerConfigBuilder(model_configs=model_configs)
 
@@ -692,12 +821,23 @@ def load_config_builder() -> "dd.DataDesignerConfigBuilder":
     b.add_column(dd.LLMStructuredColumnConfig(
         name="tree", model_alias=GEN_ALIAS, system_prompt=GEN_SYSTEM, prompt=GEN_PROMPT,
         output_format=TreeContent))
+    b.add_column(dd.CustomColumnConfig(name="record_first", generator_function=assemble_first_pass))
+
+    # ---- second pass: review and correct the first attempt ----------------- #
+    b.add_column(dd.LLMStructuredColumnConfig(
+        name="revision", model_alias=REVISE_ALIAS, system_prompt=GEN_SYSTEM, prompt=REVISE_PROMPT,
+        output_format=RevisedTree))
     b.add_column(dd.CustomColumnConfig(name="record", generator_function=assemble_record))
 
     # ---- quality scores (kept as columns; the export script filters) ------- #
-    b.add_column(dd.LLMJudgeColumnConfig(
-        name="judge", model_alias=JUDGE_ALIAS, prompt=JUDGE_PROMPT, scores=_scores(),
-        skip=dd.SkipConfig(when="{{ not structure_valid }}")))
+    if judge in ("first", "both"):
+        b.add_column(dd.LLMJudgeColumnConfig(
+            name="judge_first", model_alias=JUDGE_ALIAS, prompt=JUDGE_FIRST_PROMPT, scores=_scores(),
+            skip=dd.SkipConfig(when="{{ not valid_first }}")))
+    if judge in ("second", "both"):
+        b.add_column(dd.LLMJudgeColumnConfig(
+            name="judge", model_alias=JUDGE_ALIAS, prompt=JUDGE_PROMPT, scores=_scores(),
+            skip=dd.SkipConfig(when="{{ not structure_valid or revision_status != 'revised' }}")))
     return b
 
 
