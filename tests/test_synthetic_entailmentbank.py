@@ -81,3 +81,56 @@ def test_build_record_flags_bad_llm_output():
     ):
         _, _, errs = S.build_record("abcd1234", "life science", sk, broken)
         assert errs
+
+
+# --------------------------------------------------------------------------- #
+# revision pass: draft rendering and finalize()
+# --------------------------------------------------------------------------- #
+def _tree(sk, tag="a", **over):
+    t = {"question": "Why?", "answer": "Because",
+         "hypothesis": f"the goal {tag}",
+         "leaves": [{"id": k, "text": f"Fact {k} {tag}."} for k in sk["leaf_ids"]],
+         "intermediates": [{"id": k, "text": f"Conclusion {k} {tag}"} for k in sk["int_ids"]]}
+    t.update(over)
+    return t
+
+
+def test_draft_text_is_tolerant_of_missing_pieces():
+    sk = S.build_skeleton(4, random.Random(1))
+    full = S.draft_text(sk, _tree(sk))
+    assert "(MISSING)" not in full and full.count("step ") == 4 and "[hypothesis] the goal a" in full
+    broken = _tree(sk, hypothesis="", leaves=_tree(sk)["leaves"][:-1])     # one leaf and the hypothesis missing
+    text = S.draft_text(sk, broken)
+    assert text.count("(MISSING)") >= 2 and "[hypothesis] (MISSING)" in text
+    assert S.draft_text(sk, {}).count("(MISSING)") >= 4                   # nothing at all still renders
+
+
+def test_finalize_uses_a_coherent_revision():
+    sk = S.build_skeleton(4, random.Random(2))
+    rev = {**_tree(sk, "b"), "coherent": True, "revision_notes": "dropped a redundant premise"}
+    f = S.finalize("abcd1234", "life science", sk, _tree(sk, "a"), rev)
+    assert f["status"] == "revised" and not f["errs"] and not f["first_errs"]
+    assert f["rec"]["hypothesis"] == "the goal b" and f["first_rec"]["hypothesis"] == "the goal a"
+    assert f["notes"] == "dropped a redundant premise" and f["final_tree"]["hypothesis"] == "the goal b"
+    assert f["rec"]["meta"]["triples"] != f["first_rec"]["meta"]["triples"]      # the sentences really changed
+    assert f["rec"]["proof"].replace("b", "a") == f["first_rec"]["proof"]        # ... but the graph did not
+
+
+def test_finalize_reports_incoherent_and_broken_revisions_instead_of_hiding_them():
+    sk = S.build_skeleton(4, random.Random(3))
+    first = _tree(sk, "a")
+    inc = S.finalize("abcd1234", "life science", sk, first, {**_tree(sk, "b"), "coherent": False, "revision_notes": "no valid chain"})
+    assert inc["status"] == "incoherent" and inc["rec"] == inc["first_rec"]       # unchanged first attempt, flagged
+    bad = S.finalize("abcd1234", "life science", sk, first,
+                     {**_tree(sk, "b"), "coherent": True, "leaves": _tree(sk)["leaves"][:-1]})   # reviser lost an id
+    assert bad["status"] == "invalid_revision" and bad["errs"] and not bad["first_errs"]
+    assert S.finalize("abcd1234", "life science", sk, first, None)["status"] == "no_revision"
+    assert S.finalize("abcd1234", "life science", sk, first, {})["status"] == "no_revision"
+
+
+def test_finalize_can_rescue_a_broken_first_attempt():
+    sk = S.build_skeleton(3, random.Random(4))
+    broken = _tree(sk, "a", leaves=_tree(sk)["leaves"][:-1])
+    f = S.finalize("abcd1234", "life science", sk, broken, {**_tree(sk, "b"), "coherent": True})
+    assert f["first_errs"] and f["status"] == "revised" and not f["errs"]
+    assert "(MISSING)" in f["first_text"]                                         # the reviser is shown what is absent

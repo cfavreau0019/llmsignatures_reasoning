@@ -26,6 +26,10 @@ clear the default judge filter (>= 4 on every score; step_validity is the bindin
 preview and 20 % in the other, so plan on roughly 2x what you want to keep and re-measure on a larger
 preview before a big ``create``.
 
+Each record is written (tree), reviewed and corrected (revision), then judged. ``--judge second`` (default)
+scores the revised proof, ``first`` the first attempt, ``both`` each (columns ``judge`` and ``judge_first``).
+The revision step uses OPENAI_REVISE_MODEL if set, else OPENAI_MODEL.
+
 ``--max-restarts N`` (before the subcommand) sets how many times a call whose output cannot be parsed
 is re-run before the row is dropped; it is unrelated to judge scores.
 
@@ -51,8 +55,22 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(HERE))
 
-TOKENS_PER_RECORD = 4_700            # mean of two 10-record previews (both models, incl. reasoning tokens)
-CALLS_PER_RECORD = 2                 # one tree + one judge call (invalid rows skip the judge)
+TOKENS_PER_RECORD = 4_700            # MEASURED (mean of two 10-record previews): tree call + one judge call, reasoning tokens included
+REVISE_TOKENS_PER_RECORD = 2_300     # NOT measured: a guess for the revision call (about the size of the tree call)
+JUDGE_TOKENS_PER_RECORD = 1_500      # NOT measured: a guess for one extra judge call (--judge both)
+
+
+def calls_per_record(judge: str) -> int:
+    """tree + revision + one judge call, or two judge calls with --judge both (rows that fail a check skip the judge)."""
+    return 4 if judge == "both" else 3
+
+
+def tokens_per_record(judge: str) -> int:
+    return TOKENS_PER_RECORD + REVISE_TOKENS_PER_RECORD + (JUDGE_TOKENS_PER_RECORD if judge == "both" else 0)
+
+
+def build(a, G):
+    return G.load_config_builder(judge=a.judge)
 
 
 def retry_server_errors(max_retries: int = 5) -> bool:
@@ -145,30 +163,33 @@ def load():
 
 
 def summarize(df) -> None:
+    def scores(j):
+        return ({k: (v.get("score") if isinstance(v, dict) else v) for k, v in j.items()}
+                if isinstance(j, dict) else None)
+
     for i, r in df.iterrows():
         rec = r.get("record") if isinstance(r.get("record"), dict) else {}
-        j = r.get("judge")
-        scores = ({k: (v.get("score") if isinstance(v, dict) else v) for k, v in j.items()}
-                  if isinstance(j, dict) else None)
+        extra = "".join(f" | {col}={scores(r[col])}" for col in ("judge_first", "judge") if col in df.columns)
         print(f"[{i}] {rec.get('id')} | {r['domain']} | steps={r['n_steps']} | valid={r['structure_valid']} "
-              f"| judge={scores}" + (f" | errs={str(r['structure_errors'])[:100]}" if not r["structure_valid"] else ""))
+              f"| revision={r.get('revision_status')}{extra}"
+              + (f" | errs={str(r['structure_errors'])[:100]}" if not r["structure_valid"] else ""))
 
 
 def cmd_validate(a, G, DataDesigner) -> int:
-    builder = G.load_config_builder()
+    builder = build(a, G)
     new_designer(a, DataDesigner).validate(builder)
     print("configuration is valid (offline check; no API calls made)")
     return 0
 
 
 def cmd_check_models(a, G, DataDesigner) -> int:
-    new_designer(a, DataDesigner).check_models(G.load_config_builder(), max_attempts=3, retry_backoff_seconds=5)
+    new_designer(a, DataDesigner).check_models(build(a, G), max_attempts=3, retry_backoff_seconds=5)
     print("all models responded")
     return 0
 
 
 def cmd_preview(a, G, DataDesigner) -> int:
-    res = new_designer(a, DataDesigner).preview(G.load_config_builder(), num_records=a.num_records)
+    res = new_designer(a, DataDesigner).preview(build(a, G), num_records=a.num_records)
     df = res.dataset
     out = Path(a.out) if a.out else ROOT / "artifacts" / f"synthetic_entailmentbank_preview_{a.num_records}.parquet"
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -182,13 +203,15 @@ def cmd_preview(a, G, DataDesigner) -> int:
 def cmd_create(a, G, DataDesigner) -> int:
     from data_designer.config.run_config import ResumeMode
 
-    builder = G.load_config_builder()
-    gen = [mc for mc in builder.model_configs if mc.alias == G.GEN_ALIAS][0].model
-    judge = [mc for mc in builder.model_configs if mc.alias == G.JUDGE_ALIAS][0].model
-    est = a.num_records * TOKENS_PER_RECORD
+    builder = build(a, G)
+    model = {mc.alias: mc.model for mc in builder.model_configs}
+    gen, revise, judge = model[G.GEN_ALIAS], model[G.REVISE_ALIAS], model[G.JUDGE_ALIAS]
+    est = a.num_records * tokens_per_record(a.judge)
     n_groups = -(-a.num_records // a.buffer_size)
-    print(f"about to generate {a.num_records} records with '{gen}' (trees) and '{judge}' (judge)\n"
-          f"  ~{a.num_records * CALLS_PER_RECORD:,} API calls, ~{est / 1e6:.1f}M tokens (estimate from a 10-record preview)\n"
+    print(f"about to generate {a.num_records} records with '{gen}' (trees), '{revise}' (revision) and "
+          f"'{judge}' (judge of {'both passes' if a.judge == 'both' else 'the ' + a.judge + ' pass'})\n"
+          f"  ~{a.num_records * calls_per_record(a.judge):,} API calls, ~{est / 1e6:.1f}M tokens (rough: the tree + judge "
+          f"part was measured on a 10-record preview, the revision part is a guess)\n"
           f"  checkpoint every {a.buffer_size} records ({n_groups} batch{'es' if n_groups != 1 else ''}); an "
           f"interrupted run loses at most the unfinished batch, `--resume always` continues from the last saved one\n"
           f"  artifacts -> {Path(a.artifact_path).resolve()} / {a.dataset_name}")
@@ -235,6 +258,9 @@ def main() -> int:
                     help="how many times Data Designer may re-run an LLM call whose output fails to parse into "
                          "the expected structure before the row is dropped (its default is 5; 0 = never retry). "
                          "Each restart is a full extra billed call; it does not react to low judge scores")
+    ap.add_argument("--judge", choices=("first", "second", "both"), default="second",
+                    help="which proof the judge scores: the revised one (second, default), the first attempt "
+                         "(first), or each (both; adds one judge call per record)")
     ap.add_argument("--no-retry-500", action="store_true",
                     help="do not add HTTP 500 to the status codes Data Designer retries")
     a = ap.parse_args()
